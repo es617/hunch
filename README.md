@@ -1,7 +1,7 @@
 # hunch
 
 ![macOS](https://img.shields.io/badge/macOS-26_Tahoe-000000?logo=apple)
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Swift](https://img.shields.io/badge/Swift-6.2-FA7343.svg)
 ![On-Device](https://img.shields.io/badge/LLM-on--device-green)
 
@@ -26,7 +26,6 @@ This takes accuracy from **40% to 66%** on a 100-prompt benchmark (73% in accura
 ## Who it's for
 
 - **Developers who forget flags** — `find -mmin` vs `-mtime`, `tar czf` vs `tar xzf`, `git branch --sort=-committerdate`. You know the command exists, you just can't remember the syntax.
-- **Linux users on macOS** — the model's training data is Linux-heavy. Without hunch, it suggests `ip a` instead of `ifconfig`, `systemctl` instead of `launchctl`. The example bank corrects this.
 - **Anyone curious about on-device LLMs** — hunch is a practical testbed for what Apple's 3B model can and can't do, with published benchmark data.
 
 ---
@@ -130,21 +129,9 @@ The DB is the big win (+25pp). Self-consistency adds another +7pp on top, but on
 
 The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
-### What the model gets right
+### Limitations
 
-- Simple commands: `ls`, `pwd`, `date`, `cal`, `top`, `uptime`
-- Common flags: `find . -name '*.png'`, `tar xzf`, `git log --oneline`, `curl -O`
-- macOS commands (with examples): `pbcopy`, `caffeinate`, `pmset -g batt`, `open .`
-- Composed commands: `kill $(lsof -t -i :3000)`, `du -sh * | sort -hr`
-
-### What it gets wrong
-
-- **Invents flags**: `-mtime +1h` (invalid) instead of `-mmin -60`
-- **Linux bias**: `ip a`, `systemctl`, `lsusb` instead of macOS equivalents
-- **Can't construct awk/sed one-liners** reliably
-- **Dangerous hallucinations**: `git reset --hard` when asked for `--soft`
-
-The Ctrl+G design (inspect before running) makes the wrong answers safe — annoying, not dangerous.
+The model gets ~66% right. The other ~34% can be wrong or dangerous — `git reset --hard` when you asked for `--soft`, Linux commands that don't exist on macOS, invented flags. **Always read the command before hitting Enter.** The Ctrl+G design makes this safe by default — it fills the buffer, it never executes.
 
 ---
 
@@ -161,7 +148,7 @@ The pre-built `tldr_bank.db` ships with the release. To regenerate from latest t
 
 ```bash
 make update-bank
-sudo make install
+make install
 ```
 
 This clones [tldr-pages](https://github.com/tldr-pages/tldr), parses all entries into Q/A pairs, adds macOS-specific overrides, and rebuilds the FTS5 index.
@@ -182,7 +169,7 @@ This clones [tldr-pages](https://github.com/tldr-pages/tldr), parses all entries
 
 ## License
 
-MIT
+[MIT](LICENSE)
 
 ## Acknowledgements
 
