@@ -13,3 +13,4 @@ bank/tldr-pages/
 __pycache__/
 *.cast
 *.tar.gz
+CLAUDE.md
