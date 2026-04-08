@@ -12,3 +12,4 @@ bank/tldr-pages/
 .DS_Store
 __pycache__/
 *.cast
+*.tar.gz
