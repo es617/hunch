@@ -42,6 +42,9 @@ bindkey '^G' hunch-cmd
 # 2. command_not_found_handler — smart typo/platform correction
 # ---------------------------------------------------------------------------
 command_not_found_handler() {
+  # Prevent infinite recursion if hunch is not in PATH
+  (( $+commands[hunch] )) || { echo "zsh: command not found: $1"; return 127; }
+
   local guess
   guess=$(hunch --notfound "$*" 2>/dev/null)
 
