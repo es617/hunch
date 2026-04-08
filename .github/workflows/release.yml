@@ -32,15 +32,26 @@ jobs:
           cp hooks/hunch.zsh dist/
           cd dist && tar czf ../hunch-${{ steps.version.outputs.version }}-bank.tar.gz *
 
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          # Extract the section for the current version from CHANGELOG.md
+          version="${{ steps.version.outputs.version }}"
+          body=$(awk "/^## ${version}/{found=1; next} /^## /{found=0} found" CHANGELOG.md)
+          echo "body<<CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "CHANGELOG_EOF" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           draft: true
-          generate_release_notes: true
           files: |
             hunch-${{ steps.version.outputs.version }}-bank.tar.gz
           body: |
-            ## hunch v${{ steps.version.outputs.version }}
+            ${{ steps.changelog.outputs.body }}
+
+            ---
 
             ### Install
 
@@ -52,7 +63,7 @@ jobs:
             **From source:**
             ```
             git clone https://github.com/es617/hunch.git
-            cd hunch && make build && sudo make install
+            cd hunch && make build && make install
             ```
 
             **Manual:** Download `hunch-${{ steps.version.outputs.version }}-arm64-macos.tar.gz`, extract, and move `hunch` to your PATH and `tldr_bank.db` to `~/.hunch/`.
