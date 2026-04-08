@@ -32,6 +32,14 @@ This takes accuracy from **40% to 66%** on a 100-prompt benchmark (73% in accura
 
 ## Quickstart
 
+**Homebrew:**
+
+```bash
+brew tap es617/tap && brew install hunch
+```
+
+**From source:**
+
 ```bash
 git clone https://github.com/es617/hunch.git
 cd hunch
@@ -39,9 +47,13 @@ make build
 make install          # installs to ~/.local (no sudo)
 ```
 
-Add to `~/.zshrc`:
+Then add to `~/.zshrc`:
 
 ```bash
+# Homebrew:
+source /opt/homebrew/share/hunch/hunch.zsh
+
+# Or from source:
 source ~/.local/share/hunch/hunch.zsh
 ```
 
