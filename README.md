@@ -11,6 +11,8 @@ Uses Apple's FoundationModels framework (3B parameter model, Neural Engine) with
 
 > **Example:** Type `find files changed in the last hour`, hit Ctrl+G, get `find . -mmin -60`.
 
+![hunch demo](https://raw.githubusercontent.com/es617/hunch/main/demo.gif)
+
 ---
 
 ## Why this exists

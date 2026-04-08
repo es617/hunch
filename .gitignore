@@ -11,3 +11,4 @@ bank/tldr-pages/
 # macOS
 .DS_Store
 __pycache__/
+*.cast
