@@ -13,7 +13,7 @@ Uses Apple's FoundationModels framework (3B parameter model, Neural Engine) with
 
 ![hunch demo](https://raw.githubusercontent.com/es617/hunch/main/docs/demo.gif)
 
-**Blog post:** [Every Tahoe Mac Runs a 3B LLM. Here's What Happens When You Wire It Into zsh.](https://es617.dev/2026/04/08/apple-on-device-llm-shell.html) — full benchmark data, 10 approaches tested, and what the results say about small on-device models.
+**[Blog post](https://es617.dev/2026/04/08/apple-on-device-llm-shell.html)** — full benchmark data, 10 approaches tested, and what the results say about small on-device models.
 
 ---
 
