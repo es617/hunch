@@ -14,7 +14,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run tests
-        run: cd cli && swift test
+        run: |
+          SWIFT_VERSION=$(swift --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          if python3 -c "exit(0 if tuple(map(int,'$SWIFT_VERSION'.split('.'))) >= (6,2) else 1)"; then
+            cd cli && swift test
+          else
+            echo "::warning::Swift $SWIFT_VERSION < 6.2 — skipping tests (requires macOS 26 SDK)"
+          fi
 
       - name: Extract version
         id: version
