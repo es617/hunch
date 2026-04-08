@@ -1,4 +1,4 @@
-PREFIX ?= /usr/local
+PREFIX ?= $(HOME)/.local
 BINDIR = $(PREFIX)/bin
 SHAREDIR = $(PREFIX)/share/hunch
 
@@ -18,6 +18,10 @@ install: build
 	@echo ""
 	@echo "Installed hunch to $(BINDIR)/hunch"
 	@echo ""
+	@case "$$PATH" in \
+		*$(BINDIR)*) ;; \
+		*) echo "Add to your PATH: export PATH=\"$(BINDIR):\$$PATH\"" ; echo "" ;; \
+	esac
 	@echo "Run 'make hooks' to add shell hooks to ~/.zshrc, or add manually:"
 	@echo "  source $(SHAREDIR)/hunch.zsh"
 

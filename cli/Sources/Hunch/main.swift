@@ -8,6 +8,7 @@ func findDatabase() -> String? {
             .deletingLastPathComponent()
             .appendingPathComponent("../share/hunch/tldr_bank.db")
             .standardized.path,
+        NSHomeDirectory() + "/.local/share/hunch/tldr_bank.db",
         "/opt/homebrew/share/hunch/tldr_bank.db",
         "/usr/local/share/hunch/tldr_bank.db",
         FileManager.default.currentDirectoryPath + "/bank/tldr_bank.db",
@@ -58,8 +59,15 @@ struct Hunch {
         let fullQuery = args.joined(separator: " ")
 
         var examples: [BankResult] = []
-        if mode != .explain, let dbPath = findDatabase() {
-            examples = searchBank(dbPath: dbPath, query: fullQuery)
+        if let dbPath = findDatabase() {
+            switch mode {
+            case .suggest:
+                examples = searchBank(dbPath: dbPath, query: fullQuery)
+            case .notfound:
+                examples = searchBankByCommand(dbPath: dbPath, command: fullQuery)
+            case .explain:
+                break
+            }
         }
 
         let systemPrompt = buildSystemPrompt(mode: mode, examples: examples)

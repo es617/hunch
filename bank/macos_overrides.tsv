@@ -1,5 +1,25 @@
-# macOS-specific commands missing or wrong in tldr
+# macOS-specific commands and Linux→macOS equivalents
 # Format: question\tanswer\tcommand_name
+# For Linux→macOS mappings, command_name is the LINUX command so notfound can find it
+ip a	ifconfig	ip
+ip addr	ifconfig	ip
+ip route	netstat -rn	ip
+ss -tlnp	lsof -iTCP -sTCP:LISTEN -nP	ss
+apt install package	brew install package	apt
+apt-get install package	brew install package	apt-get
+systemctl status service	launchctl list | grep service	systemctl
+systemctl restart service	launchctl kickstart -k system/service	systemctl
+free -h	vm_stat	free
+lsusb	system_profiler SPUSBDataType	lsusb
+xdg-open file	open file	xdg-open
+xclip -selection clipboard	pbcopy	xclip
+md5sum file	md5 file	md5sum
+sha256sum file	shasum -a 256 file	sha256sum
+readlink -f path	realpath path	readlink
+strace command	dtrace -n 'syscall:::entry /pid == $target/ {}' -p PID	strace
+ldd binary	otool -L binary	ldd
+watch -n 5 command	while true; do command; sleep 5; done	watch
+seq 10	jot 10	seq
 copy output to clipboard	echo 'text' | pbcopy	pbcopy
 paste from clipboard	pbpaste	pbpaste
 copy file contents to clipboard	cat file | pbcopy	pbcopy
