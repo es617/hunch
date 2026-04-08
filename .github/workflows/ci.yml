@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Lint — check formatting
+        run: |
+          if command -v swift-format &>/dev/null; then
+            swift-format lint --recursive cli/Sources cli/Tests
+          else
+            echo "swift-format not available, skipping"
+          fi
+
+      - name: Build library
+        run: cd cli && swift build --target HunchLib
+
+      - name: Run tests
+        run: cd cli && swift test
+
+      - name: Lint — no force unwraps in library
+        run: |
+          if grep -rn '!' cli/Sources/HunchLib/*.swift | grep -v '//' | grep -v 'import' | grep -v 'isEmpty' | grep -qE '\!$|\![^=]'; then
+            echo "Warning: possible force unwraps in HunchLib"
+            grep -rn '!' cli/Sources/HunchLib/*.swift | grep -v '//' | grep -v 'import' | grep -v 'isEmpty' | grep -E '\!$|\![^=]'
+          fi
+
+      - name: Lint — no print statements in library
+        run: |
+          if grep -rn '^[[:space:]]*print(' cli/Sources/HunchLib/*.swift; then
+            echo "::error::Debug print statements found in HunchLib"
+            exit 1
+          fi

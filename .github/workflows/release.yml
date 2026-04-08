@@ -1,0 +1,68 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-release:
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: cd cli && swift test
+
+      - name: Extract version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+
+      - name: Create release archive
+        run: |
+          # Note: the executable must be built locally on macOS 26 and
+          # attached to the release manually, since GitHub Actions
+          # doesn't have Tahoe runners yet.
+          #
+          # This workflow creates the release draft with the database.
+          mkdir -p dist
+          cp bank/tldr_bank.db dist/
+          cp hooks/hunch.zsh dist/
+          cd dist && tar czf ../hunch-${{ steps.version.outputs.version }}-bank.tar.gz *
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          generate_release_notes: true
+          files: |
+            hunch-${{ steps.version.outputs.version }}-bank.tar.gz
+          body: |
+            ## hunch v${{ steps.version.outputs.version }}
+
+            ### Install
+
+            **Homebrew:**
+            ```
+            brew tap es617/tap && brew install hunch
+            ```
+
+            **From source:**
+            ```
+            git clone https://github.com/es617/hunch.git
+            cd hunch && make build && sudo make install
+            ```
+
+            **Manual:** Download `hunch-${{ steps.version.outputs.version }}-arm64-macos.tar.gz`, extract, and move `hunch` to your PATH and `tldr_bank.db` to `~/.hunch/`.
+
+            ### Setup
+
+            Add to `~/.zshrc`:
+            ```
+            source /usr/local/share/hunch/hunch.zsh
+            ```
+
+            ---
+            > **Note:** Attach the prebuilt binary (`hunch-<version>-arm64-macos.tar.gz`) before publishing this release. Build locally with `make build` on macOS 26.
