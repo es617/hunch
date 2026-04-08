@@ -23,10 +23,25 @@ jobs:
             echo "swift-format not available, skipping"
           fi
 
+      - name: Check Swift tools version compatibility
+        id: swift-check
+        run: |
+          SWIFT_VERSION=$(swift --version 2>&1 | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          echo "swift_version=$SWIFT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Swift version: $SWIFT_VERSION"
+          if python3 -c "exit(0 if tuple(map(int,'$SWIFT_VERSION'.split('.'))) >= (6,2) else 1)"; then
+            echo "compatible=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "compatible=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Swift $SWIFT_VERSION < 6.2 — skipping build/test (requires macOS 26 SDK)"
+          fi
+
       - name: Build library
+        if: steps.swift-check.outputs.compatible == 'true'
         run: cd cli && swift build --target HunchLib
 
       - name: Run tests
+        if: steps.swift-check.outputs.compatible == 'true'
         run: cd cli && swift test
 
       - name: Lint — no force unwraps in library
