@@ -86,7 +86,7 @@ TRAPZERR() {
   (( ${#last_cmd} < 3 )) && return
 
   # Don't send commands that might contain secrets to the model
-  [[ "$last_cmd" =~ (password|passwd|token|secret|Bearer|api[_-]?key) ]] && return
+  [[ "${last_cmd:l}" =~ (password|passwd|token|secret|bearer|api[_-]?key|auth|credential) ]] && return
 
   local explanation
   explanation=$(hunch --explain "Command: $last_cmd — Exit code: $exit_code" 2>/dev/null)

@@ -35,13 +35,13 @@ This takes accuracy from **40% to 68%** on a 100-prompt benchmark — without le
 git clone https://github.com/es617/hunch.git
 cd hunch
 make build
-sudo make install
+make install          # installs to ~/.local (no sudo)
 ```
 
 Add to `~/.zshrc`:
 
 ```bash
-source /usr/local/share/hunch/hunch.zsh
+source ~/.local/share/hunch/hunch.zsh
 ```
 
 Open a new terminal. Type a description, hit **Ctrl+G**.
@@ -104,9 +104,9 @@ The key insight: the 3B model is a pattern-copier, not a reasoner. Feeding it do
 
 | File | Size | Purpose |
 |------|------|---------|
-| `/usr/local/bin/hunch` | ~1 MB | Swift binary (FoundationModels + SQLite FTS5) |
-| `/usr/local/share/hunch/tldr_bank.db` | 4 MB | Pre-built FTS5 index (21k Q/A pairs) |
-| `/usr/local/share/hunch/hunch.zsh` | 2 KB | zsh plugin (Ctrl+G, typo, failure hooks) |
+| `~/.local/bin/hunch` | ~1 MB | Swift binary (FoundationModels + SQLite FTS5) |
+| `~/.local/share/hunch/tldr_bank.db` | 4 MB | Pre-built FTS5 index (21k Q/A pairs) |
+| `~/.local/share/hunch/hunch.zsh` | 2 KB | zsh plugin (Ctrl+G, typo, failure hooks) |
 
 ---
 

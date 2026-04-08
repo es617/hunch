@@ -49,6 +49,7 @@ struct Hunch {
             return
         }
 
+
         // Parse options
         let temperature = parseFlag(&args, flag: "--temperature").flatMap(Double.init)
         let samples = parseFlag(&args, flag: "--samples").flatMap(Int.init) ?? 1
@@ -110,6 +111,10 @@ struct Hunch {
                 )
             } else {
                 session = LanguageModelSession(model: model)
+            }
+
+            if samples > 1 && temperature == nil {
+                fputs("warning: --samples without --temperature is useless (model is deterministic at temp 0). Add --temperature 0.3\n", stderr)
             }
 
             if samples <= 1 {

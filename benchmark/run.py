@@ -6,7 +6,7 @@ Usage:
   python3 run.py minimal                  # run one approach
   python3 run.py minimal --ids 1,2,3      # run specific prompts
   python3 run.py minimal --category flags # run one category
-  python3 run.py all --parallel 3         # run N prompts concurrently (careful with Neural Engine)
+  python3 run.py all                       # run all approaches
 """
 
 import json
@@ -18,7 +18,6 @@ import os
 import math
 from pathlib import Path
 from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PROMPTS_FILE = Path(__file__).parent / "prompts.jsonl"
 RESULTS_DIR = Path(__file__).parent / "results"
@@ -440,6 +439,25 @@ def approach_hunch(prompt):
         return {"result": "[TIMEOUT]", "total_time": elapsed}
 
 
+def approach_hunch_sc(prompt):
+    """Call hunch CLI with temperature 0.3 and 3 samples (accuracy mode)."""
+    cmd = ["hunch", "--temperature", "0.3", "--samples", "3", prompt]
+    start = time.time()
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+        elapsed = round(time.time() - start, 2)
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if "guardrail" in stderr.lower():
+                return {"result": "[GUARDRAIL]", "total_time": elapsed}
+            return {"result": f"[ERROR:{result.returncode}] {stderr[:100]}", "total_time": elapsed}
+        return {"result": strip_markdown(output), "total_time": elapsed}
+    except subprocess.TimeoutExpired:
+        elapsed = round(time.time() - start, 2)
+        return {"result": "[TIMEOUT]", "total_time": elapsed}
+
+
 def approach_dynshot_tldr(prompt):
     """Dynamic few-shot using tldr+overrides FTS5 index (21k entries)."""
     import sqlite3
@@ -479,6 +497,8 @@ Examples:
 
 def approach_dynshot_holdout(prompt):
     """Dynamic few-shot using ONLY the holdout train bank (no test leakage)."""
+    if not HOLDOUT_BANK.exists():
+        return {"result": "[ERROR:no-holdout-bank]", "total_time": 0}
     with open(HOLDOUT_BANK) as f:
         bank = json.load(f)
     selected = select_fewshot(prompt, bank, n=8, exclude_exact=prompt)
@@ -506,6 +526,7 @@ APPROACHES = {
     "dynshot-holdout": approach_dynshot_holdout,
     "dynshot-tldr": approach_dynshot_tldr,
     "hunch": approach_hunch,
+    "hunch-sc": approach_hunch_sc,
     "sc-dynshot": approach_selfconsist_dynshot,
     "sc-warm": approach_selfconsist_warm,
 }
