@@ -299,6 +299,98 @@ def approach_selfconsist(prompt):
     }
 
 
+def approach_selfconsist_dynshot(prompt):
+    """Self-consistency with dynamic few-shot and temperature 0.3. Run 3 times, majority vote."""
+    import sqlite3
+    db_path = Path(__file__).parent.parent / "bank" / "tldr_bank.db"
+    if not db_path.exists():
+        return approach_permissive(prompt)
+
+    words = re.findall(r'[a-zA-Z]+', prompt.lower())
+    stop_words = {"the", "a", "an", "in", "on", "to", "for", "of", "and", "or", "is", "it",
+                  "all", "my", "this", "that", "with", "from", "how", "do", "what", "show",
+                  "get", "find", "list", "display"}
+    words = [w for w in words if w not in stop_words and len(w) > 1]
+    if not words:
+        return approach_permissive(prompt)
+
+    conn = sqlite3.connect(str(db_path))
+    fts_query = " OR ".join(f'"{w}"' for w in words)
+    rows = conn.execute(
+        "SELECT question, answer FROM bank WHERE bank MATCH ? ORDER BY rank LIMIT 8",
+        (fts_query,)
+    ).fetchall()
+    conn.close()
+
+    examples = "\n".join(f"Q: {r[0]}\nA: {r[1]}" for r in rows)
+    sys_prompt = f"""Output a single shell command for zsh on macOS. No explanation, no markdown, no backticks. Just the command.
+
+Examples:
+{examples}"""
+
+    # Run 3 times with temperature 0.3
+    results = []
+    total_time = 0
+    cmd_base = ["apfel", "-q", "--temperature", "0.3", "--permissive", "-s", sys_prompt, prompt]
+    for _ in range(3):
+        start = time.time()
+        try:
+            result = subprocess.run(cmd_base, capture_output=True, text=True, timeout=TIMEOUT)
+            elapsed = round(time.time() - start, 2)
+            output = strip_markdown(result.stdout.strip()) if result.returncode == 0 else "[ERROR]"
+        except subprocess.TimeoutExpired:
+            elapsed = round(time.time() - start, 2)
+            output = "[TIMEOUT]"
+        results.append(output)
+        total_time += elapsed
+
+    normalized = [r.strip() for r in results if not r.startswith("[")]
+    if not normalized:
+        return {"result": results[0] if results else "[EMPTY]", "total_time": round(total_time, 2),
+                "all_results": results}
+
+    counter = Counter(normalized)
+    best = counter.most_common(1)[0][0]
+    return {
+        "result": best,
+        "total_time": round(total_time, 2),
+        "all_results": results,
+        "agreement": counter.most_common(1)[0][1],
+    }
+
+
+def approach_selfconsist_warm(prompt):
+    """Self-consistency with temperature 0.3, no DB. Run 3 times, majority vote."""
+    results = []
+    total_time = 0
+    cmd_base = ["apfel", "-q", "--temperature", "0.3", "--permissive", "-s", SYS_PROMPT, prompt]
+    for _ in range(3):
+        start = time.time()
+        try:
+            result = subprocess.run(cmd_base, capture_output=True, text=True, timeout=TIMEOUT)
+            elapsed = round(time.time() - start, 2)
+            output = strip_markdown(result.stdout.strip()) if result.returncode == 0 else "[ERROR]"
+        except subprocess.TimeoutExpired:
+            elapsed = round(time.time() - start, 2)
+            output = "[TIMEOUT]"
+        results.append(output)
+        total_time += elapsed
+
+    normalized = [r.strip() for r in results if not r.startswith("[")]
+    if not normalized:
+        return {"result": results[0] if results else "[EMPTY]", "total_time": round(total_time, 2),
+                "all_results": results}
+
+    counter = Counter(normalized)
+    best = counter.most_common(1)[0][0]
+    return {
+        "result": best,
+        "total_time": round(total_time, 2),
+        "all_results": results,
+        "agreement": counter.most_common(1)[0][1],
+    }
+
+
 def approach_verify(prompt):
     """Generate-then-verify: generate command, then ask model to check/fix it."""
     # Pass 1: generate
@@ -327,6 +419,25 @@ Output only the command, no explanation, no markdown, no backticks."""
         "pass2_time": t2,
         "total_time": round(t1 + t2, 2),
     }
+
+
+def approach_hunch(prompt):
+    """Call the hunch CLI directly (end-to-end test of the shipped binary)."""
+    cmd = ["hunch", prompt]
+    start = time.time()
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+        elapsed = round(time.time() - start, 2)
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if "guardrail" in stderr.lower():
+                return {"result": "[GUARDRAIL]", "total_time": elapsed}
+            return {"result": f"[ERROR:{result.returncode}] {stderr[:100]}", "total_time": elapsed}
+        return {"result": strip_markdown(output), "total_time": elapsed}
+    except subprocess.TimeoutExpired:
+        elapsed = round(time.time() - start, 2)
+        return {"result": "[TIMEOUT]", "total_time": elapsed}
 
 
 def approach_dynshot_tldr(prompt):
@@ -394,6 +505,9 @@ APPROACHES = {
     "verify": approach_verify,
     "dynshot-holdout": approach_dynshot_holdout,
     "dynshot-tldr": approach_dynshot_tldr,
+    "hunch": approach_hunch,
+    "sc-dynshot": approach_selfconsist_dynshot,
+    "sc-warm": approach_selfconsist_warm,
 }
 
 

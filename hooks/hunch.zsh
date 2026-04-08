@@ -22,8 +22,12 @@ hunch-cmd() {
 
   zle -R "hunch: thinking..."
 
+  local -a hunch_args
+  [[ -n "$HUNCH_TEMPERATURE" ]] && hunch_args+=(--temperature "$HUNCH_TEMPERATURE")
+  [[ -n "$HUNCH_SAMPLES" ]] && hunch_args+=(--samples "$HUNCH_SAMPLES")
+
   local cmd
-  cmd=$(hunch "$prompt" 2>/dev/null)
+  cmd=$(hunch "${hunch_args[@]}" "$prompt" 2>/dev/null)
 
   if [[ -n "$cmd" ]]; then
     BUFFER="$cmd"

@@ -62,7 +62,27 @@ Three zsh hooks, each targeting a different moment in the command lifecycle:
 hunch find files changed in the last hour      # → find . -mmin -60
 hunch --notfound ip a                           # → ifconfig
 hunch --explain "Command: git push — Exit code: 128"  # → explains the error
+hunch --temperature 0.3 --samples 3 show disk usage   # → accuracy mode
 ```
+
+### Configuration
+
+Set environment variables in `~/.zshrc` (before the `source` line) to tune the Ctrl+G behavior:
+
+```bash
+# Optional: trade speed for accuracy (75% vs 66%)
+export HUNCH_TEMPERATURE=0.3   # add variation to model output
+export HUNCH_SAMPLES=3         # run 3 times, pick majority answer
+
+source /usr/local/share/hunch/hunch.zsh
+```
+
+| Variable | Default | Effect |
+|----------|---------|--------|
+| `HUNCH_TEMPERATURE` | 0 (deterministic) | Higher = more variation. 0.3 is the sweet spot. |
+| `HUNCH_SAMPLES` | 1 | Run N times, majority vote. 3 gives +9pp accuracy at ~1.7s latency. |
+
+Run `hunch --help` to see current settings and database status.
 
 ---
 
