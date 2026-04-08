@@ -19,7 +19,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-This takes accuracy from **40% to 68%** on a 100-prompt benchmark — without leaving the device.
+This takes accuracy from **40% to 66%** on a 100-prompt benchmark (73% in accuracy mode) — without leaving the device.
 
 ## Who it's for
 
@@ -112,17 +112,21 @@ The key insight: the 3B model is a pattern-copier, not a reasoner. Feeding it do
 
 ## Benchmark
 
-100 prompts across 10 approaches. Each result scored as exact match, manually accepted (functionally correct), or wrong.
+100 prompts across 12 approaches. Each result scored as exact match, manually accepted (functionally correct), or wrong. All numbers are end-to-end through the shipped CLI.
 
-| Approach | Usable | Avg Time | Notes |
-|----------|--------|----------|-------|
-| **hunch (dynshot-tldr)** | **68%** | 0.4s | FTS5 search over 21k tldr examples |
+| Mode | Usable | Avg Time | Notes |
+|------|--------|----------|-------|
+| **hunch (accuracy mode)** | **73%** | 1.3s | `--temperature 0.3 --samples 3` |
+| **hunch (default)** | **66%** | 0.4s | FTS5 search over 21k tldr examples |
 | Static few-shot | 43% | 1.1s | 8 hand-picked examples |
-| Bare prompt | 40% | 0.4s | No examples |
+| Bare prompt | 41% | 0.4s | No examples, no DB |
+| Self-consistency (no DB) | 39% | 1.4s | Temperature 0.3, 3 samples, but no examples — useless |
 | Man page index | 37% | 1.5s | Flag descriptions from man pages |
 | Self-critique | 33% | 0.7s | Generate then verify — made things worse |
 
-The model can't read documentation and apply it. It can copy patterns from similar examples. The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
+The DB is the big win (+25pp). Self-consistency adds another +7pp on top, but only when combined with the DB. Without examples, temperature + voting does nothing.
+
+The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
 ### What the model gets right
 
