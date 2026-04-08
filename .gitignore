@@ -1,0 +1,12 @@
+# Swift
+cli/.build/
+cli/.swiftpm/
+
+# Benchmark results (regenerated per run)
+benchmark/results/*.jsonl
+
+# tldr source (cloned at build time)
+bank/tldr-pages/
+
+# macOS
+.DS_Store

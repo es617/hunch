@@ -1,0 +1,66 @@
+# macOS-specific commands missing or wrong in tldr
+# Format: question\tanswer\tcommand_name
+copy output to clipboard	echo 'text' | pbcopy	pbcopy
+paste from clipboard	pbpaste	pbpaste
+copy file contents to clipboard	cat file | pbcopy	pbcopy
+prevent mac from sleeping	caffeinate	caffeinate
+keep mac awake for 1 hour	caffeinate -t 3600	caffeinate
+say something out loud	say 'hello world'	say
+speak text from file	say -f file.txt	say
+search files with spotlight	mdfind 'query'	mdfind
+spotlight search by filename	mdfind -name 'file.txt'	mdfind
+show battery status	pmset -g batt	pmset
+show power settings	pmset -g	pmset
+flush dns cache	sudo dscacheutil -flushcache; sudo killall -HUP mDNSResponder	dscacheutil
+show wifi network name	networksetup -getairportnetwork en0	networksetup
+list network interfaces	networksetup -listallhardwareports	networksetup
+show hardware info	system_profiler SPHardwareDataType	system_profiler
+list usb devices	system_profiler SPUSBDataType	system_profiler
+list bluetooth devices	system_profiler SPBluetoothDataType	system_profiler
+resize image width	sips --resampleWidth 800 image.jpg	sips
+convert image format	sips -s format png input.jpg --out output.png	sips
+show image dimensions	sips -g pixelWidth -g pixelHeight image.jpg	sips
+show file permissions in octal	stat -f '%A' file	stat
+show file creation date	stat -f '%SB' -t '%Y-%m-%d' file	stat
+calculate md5 hash	md5 file	md5
+calculate sha256 hash	shasum -a 256 file	shasum
+open current directory in Finder	open .	open
+open file with default app	open file.pdf	open
+open url in browser	open https://example.com	open
+show ip address	ifconfig	ifconfig
+show ip address of wifi interface	ipconfig getifaddr en0	ipconfig
+show memory usage	vm_stat	vm_stat
+show system uptime	uptime	uptime
+who is logged in	who	who
+record terminal session	script session.log	script
+show which shell i am using	echo $SHELL	echo
+show calendar	cal	cal
+find files modified in the last hour	find . -mmin -60	find
+find files modified in the last 30 minutes	find . -mmin -30	find
+find files modified in the last 2 hours	find . -mmin -120	find
+kill process on a port	kill $(lsof -t -i :3000)	kill
+show process using a port	lsof -i :8080	lsof
+show all listening ports	lsof -iTCP -sTCP:LISTEN -nP	lsof
+base64 encode a string	echo -n 'text' | base64	base64
+base64 decode	echo 'encoded' | base64 -D	base64
+generate random password	openssl rand -base64 32	openssl
+show environment variables containing a word	env | grep PATH	env
+show unique lines in a file	sort file | uniq	sort
+show common lines in two files	comm -12 <(sort file1) <(sort file2)	comm
+run command repeatedly	while true; do command; sleep 5; done	while
+show 10 biggest files	du -ah . | sort -rh | head -10	du
+show folder sizes sorted	du -sh * | sort -hr	du
+replace text in all files	find . -type f -exec sed -i '' 's/old/new/g' {} +	find
+replace tabs with spaces in file	sed -i '' 's/\t/    /g' file	sed
+count files in directory	ls -1 | wc -l	ls
+sum numbers in a file	awk '{s+=$1} END {print s}' file	awk
+print first column of csv	awk -F, '{print $1}' file.csv	awk
+kill process by name	pkill processname	pkill
+show crontab entries	crontab -l	crontab
+convert unix timestamp to date	date -r 1700000000	date
+undo last git commit keep changes	git reset --soft HEAD~1	git
+git branches sorted by date	git branch --sort=-committerdate	git
+unpushed git commits	git log origin/main..HEAD	git
+delete merged git branches	git branch --merged | grep -v main | xargs git branch -d	git
+test if port is open	nc -zv hostname 80	nc
+processes using most cpu	ps aux --sort=-%cpu | head -10	ps
