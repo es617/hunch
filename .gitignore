@@ -5,8 +5,9 @@ cli/.swiftpm/
 # Benchmark results (regenerated per run)
 benchmark/results/*.jsonl
 
-# tldr source (cloned at build time)
+# Example sources (cloned at build time)
 bank/tldr-pages/
+bank/cheatsheets/
 
 # macOS
 .DS_Store

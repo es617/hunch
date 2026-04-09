@@ -92,10 +92,11 @@ struct Hunch {
                 guardrails: .permissiveContentTransformations
             )
 
-            // Build generation options
-            var genOptions = GenerationOptions()
-            if let t = temperature {
-                genOptions.temperature = t
+            // Build generation options only when temperature is set
+            let genOptions: GenerationOptions? = temperature.map {
+                var opts = GenerationOptions()
+                opts.temperature = $0
+                return opts
             }
 
             let session: LanguageModelSession
@@ -118,7 +119,12 @@ struct Hunch {
             }
 
             if samples <= 1 {
-                let response = try await session.respond(to: fullQuery, options: genOptions)
+                let response: LanguageModelSession.Response<String>
+                if let opts = genOptions {
+                    response = try await session.respond(to: fullQuery, options: opts)
+                } else {
+                    response = try await session.respond(to: fullQuery)
+                }
                 print(stripMarkdown(response.content))
             } else {
                 // Self-consistency: run N times, pick majority
@@ -128,7 +134,12 @@ struct Hunch {
                         model: model,
                         transcript: session.transcript
                     )
-                    let response = try await s.respond(to: fullQuery, options: genOptions)
+                    let response: LanguageModelSession.Response<String>
+                    if let opts = genOptions {
+                        response = try await s.respond(to: fullQuery, options: opts)
+                    } else {
+                        response = try await s.respond(to: fullQuery)
+                    }
                     results.append(stripMarkdown(response.content))
                 }
 

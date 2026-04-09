@@ -120,7 +120,13 @@ def score_one(result, prompt_info, alternates, review_override=None):
         "command_correct": False,
     }
 
-    # Check manual review override
+    # Exact match always wins — check before reviews (reviews are from older runs)
+    if commands_match(got, accepted):
+        scores["tier"] = "exact"
+        scores["command_correct"] = True
+        return scores
+
+    # Check manual review override (only for non-exact results)
     if review_override == "accept":
         scores["tier"] = "accept"
         scores["command_correct"] = True
@@ -137,10 +143,7 @@ def score_one(result, prompt_info, alternates, review_override=None):
         scores["tier"] = "error"
         return scores
 
-    # Exact match against any accepted answer
-    if commands_match(got, accepted):
-        scores["tier"] = "exact"
-        scores["command_correct"] = True
+    # Exact match already checked above (before reviews)
         return scores
 
     # Command-level match

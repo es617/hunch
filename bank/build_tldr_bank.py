@@ -16,22 +16,27 @@ from pathlib import Path
 
 BANK_DIR = Path(__file__).parent
 TLDR_DIR = BANK_DIR / "tldr-pages"
+CHEAT_DIR = BANK_DIR / "cheatsheets"
 DB_PATH = BANK_DIR / "tldr_bank.db"
 OVERRIDES_PATH = BANK_DIR / "macos_overrides.tsv"
 
 
-def download_tldr():
-    """Clone or update tldr pages."""
-    if TLDR_DIR.exists():
-        print("Updating tldr pages...")
-        subprocess.run(["git", "-C", str(TLDR_DIR), "pull", "-q"], check=True)
+def clone_or_update(name, url, dest):
+    """Clone or update a git repo."""
+    if dest.exists():
+        print(f"Updating {name}...")
+        subprocess.run(["git", "-C", str(dest), "pull", "-q"], check=True)
     else:
-        print("Cloning tldr pages...")
+        print(f"Cloning {name}...")
         subprocess.run([
-            "git", "clone", "--depth=1",
-            "https://github.com/tldr-pages/tldr.git",
-            str(TLDR_DIR)
+            "git", "clone", "--depth=1", url, str(dest)
         ], check=True)
+
+
+def download_sources():
+    """Clone or update all example sources."""
+    clone_or_update("tldr-pages", "https://github.com/tldr-pages/tldr.git", TLDR_DIR)
+    clone_or_update("cheat/cheatsheets", "https://github.com/cheat/cheatsheets.git", CHEAT_DIR)
 
 
 def parse_tldr_page(path):
@@ -72,6 +77,39 @@ def parse_tldr_page(path):
     return pairs
 
 
+def parse_cheat_file(path):
+    """Parse a cheat/cheatsheets file into Q/A pairs.
+    Format: # comment lines are descriptions, non-comment non-empty lines are commands."""
+    cmd_name = path.stem
+    pairs = []
+
+    with open(path) as f:
+        lines = f.readlines()
+
+    i = 0
+    while i < len(lines):
+        line = lines[i].rstrip()
+        if line.startswith("# "):
+            desc = line[2:].strip()
+            # Collect following non-comment, non-empty lines as the command
+            j = i + 1
+            while j < len(lines) and lines[j].strip() and not lines[j].startswith("#"):
+                command = lines[j].strip()
+                # Clean up <placeholders>
+                command_clean = re.sub(r"<([^>]+)>", r"\1", command)
+                pairs.append({
+                    "q": desc,
+                    "a": command_clean,
+                    "cmd": cmd_name,
+                })
+                j += 1
+            i = j
+        else:
+            i += 1
+
+    return pairs
+
+
 def load_overrides():
     """Load macOS-specific overrides from TSV file."""
     pairs = []
@@ -88,28 +126,50 @@ def load_overrides():
     return pairs
 
 
-def build_bank():
-    """Parse all tldr pages into Q/A pairs."""
+def build_bank(sources="all"):
+    """Parse selected sources into Q/A pairs."""
     all_pairs = []
+    counts = {}
+    include = sources.split(",") if sources != "all" else ["tldr", "cheat", "override"]
 
-    # Parse common + osx pages
-    for section in ["common", "osx"]:
-        pages_dir = TLDR_DIR / "pages" / section
-        if not pages_dir.exists():
-            continue
-        for md_file in sorted(pages_dir.glob("*.md")):
-            pairs = parse_tldr_page(md_file)
-            for p in pairs:
-                p["source"] = section
-            all_pairs.extend(pairs)
+    # Parse tldr common + osx pages
+    if "tldr" in include:
+        for section in ["common", "osx"]:
+            pages_dir = TLDR_DIR / "pages" / section
+            if not pages_dir.exists():
+                continue
+            section_pairs = []
+            for md_file in sorted(pages_dir.glob("*.md")):
+                pairs = parse_tldr_page(md_file)
+                for p in pairs:
+                    p["source"] = f"tldr-{section}"
+                section_pairs.extend(pairs)
+            counts[f"tldr-{section}"] = len(section_pairs)
+            all_pairs.extend(section_pairs)
+
+    # Parse cheat/cheatsheets
+    if "cheat" in include and CHEAT_DIR.exists():
+        cheat_pairs = []
+        for cheat_file in sorted(CHEAT_DIR.iterdir()):
+            if cheat_file.is_file() and not cheat_file.name.startswith("."):
+                pairs = parse_cheat_file(cheat_file)
+                for p in pairs:
+                    p["source"] = "cheat"
+                cheat_pairs.extend(pairs)
+        counts["cheat"] = len(cheat_pairs)
+        all_pairs.extend(cheat_pairs)
 
     # Add macOS overrides
-    overrides = load_overrides()
-    for o in overrides:
-        o["source"] = "override"
-    all_pairs.extend(overrides)
+    if "override" in include:
+        overrides = load_overrides()
+        for o in overrides:
+            o["source"] = "override"
+        counts["override"] = len(overrides)
+        all_pairs.extend(overrides)
 
-    print(f"Parsed {len(all_pairs)} Q/A pairs ({len(all_pairs) - len(overrides)} from tldr, {len(overrides)} overrides)")
+    total = len(all_pairs)
+    breakdown = ", ".join(f"{v} from {k}" for k, v in counts.items())
+    print(f"Parsed {total} Q/A pairs ({breakdown})")
     return all_pairs
 
 
@@ -165,6 +225,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--query", help="Test search query")
     parser.add_argument("--skip-download", action="store_true")
+    parser.add_argument("--sources", default="all", help="Comma-separated sources: tldr,cheat,override or 'all'")
     args = parser.parse_args()
 
     if args.query:
@@ -178,9 +239,12 @@ def main():
         return
 
     if not args.skip_download:
-        download_tldr()
+        if args.sources == "all" or "tldr" in args.sources:
+            clone_or_update("tldr-pages", "https://github.com/tldr-pages/tldr.git", TLDR_DIR)
+        if args.sources == "all" or "cheat" in args.sources:
+            clone_or_update("cheat/cheatsheets", "https://github.com/cheat/cheatsheets.git", CHEAT_DIR)
 
-    pairs = build_bank()
+    pairs = build_bank(sources=args.sources)
     build_fts_index(pairs)
 
     # Quick test
