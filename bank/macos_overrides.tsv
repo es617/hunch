@@ -107,3 +107,31 @@ unpushed git commits	git log origin/main..HEAD	git
 delete merged git branches	git branch --merged | grep -v main | xargs git branch -d	git
 test if port is open	nc -zv hostname 80	nc
 processes using most cpu	ps aux --sort=-%cpu | head -10	ps
+find files larger than 100mb	find . -size +100M	find
+find files bigger than 500mb	find . -size +500M	find
+find files over 1gb	find . -size +1G	find
+find large files over 1gb	find . -size +1G	find
+find files by size	find . -size +100M	find
+find files modified in the last 7 days	find . -mtime -7	find
+find files modified in the last 30 days	find . -mtime -30	find
+find files changed this week	find . -mtime -7	find
+find files owned by root	find / -user root	find
+find files owned by a user	find / -user username	find
+search for pattern in specific file type	grep -rn 'pattern' --include='*.ext'	grep
+search for TODO in javascript files	grep -rn 'TODO' --include='*.js'	grep
+grep in specific file type	grep -rn 'pattern' --include='*.ext'	grep
+show http headers of a url	curl -I https://example.com	curl
+show response headers	curl -I https://example.com	curl
+get http headers	curl -I https://example.com	curl
+find duplicate files by checksum	find . -type f -exec md5 {} + | sort | uniq -d	find
+find duplicate files	find . -type f -exec md5 {} + | sort | uniq -d	find
+find processes using more than 50% cpu	ps aux | awk '$3 > 50'	ps
+find high cpu processes	ps aux | awk '$3 > 50'	ps
+count number of files in directory	ls -1 | wc -l	ls
+count files in current directory	ls -1 | wc -l	ls
+convert image to png on macOS	sips -s format png input.jpg --out output.png	sips
+convert image format on macOS	sips -s format png input.jpg --out output.png	sips
+resize image on macOS	sips --resampleWidth 800 image.jpg	sips
+resize image to specific width	sips --resampleWidth 800 image.jpg	sips
+run command every n seconds	while true; do command; sleep 5; done	while
+repeat a command every 5 seconds	while true; do command; sleep 5; done	while
