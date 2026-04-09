@@ -1,8 +1,8 @@
 class Hunch < Formula
   desc "On-device shell command generator using Apple's 3B model with tldr-based few-shot retrieval"
   homepage "https://github.com/es617/hunch"
-  url "https://github.com/es617/hunch/releases/download/v0.1.0/hunch-0.1.0-arm64-macos.tar.gz"
-  sha256 "f93e147e5c8bfb829fd93528cedfb9bd068e7edf59d720edc9e3e6dccb3013e7"
+  url "https://github.com/es617/hunch/releases/download/v0.1.1/hunch-0.1.1-arm64-macos.tar.gz"
+  sha256 "PLACEHOLDER"
   license "MIT"
 
   depends_on :macos
@@ -24,6 +24,6 @@ class Hunch < Formula
   end
 
   test do
-    assert_match "hunch 0.1.0", shell_output("#{bin}/hunch --version")
+    assert_match "hunch 0.1.1", shell_output("#{bin}/hunch --version")
   end
 end

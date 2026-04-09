@@ -45,7 +45,7 @@ struct Hunch {
         }
 
         if args[0] == "--version" || args[0] == "-v" {
-            print("hunch 0.1.0")
+            print("hunch 0.1.1")
             return
         }
 

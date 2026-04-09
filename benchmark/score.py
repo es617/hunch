@@ -25,7 +25,6 @@ from collections import defaultdict
 RESULTS_DIR = Path(__file__).parent / "results"
 PROMPTS_FILE = Path(__file__).parent / "prompts.jsonl"
 ALTERNATES_FILE = Path(__file__).parent / "alternates.json"
-REVIEWS_FILE = Path(__file__).parent / "reviews.json"
 
 
 def load_prompts():
@@ -45,17 +44,6 @@ def load_alternates():
     return {}
 
 
-def load_reviews():
-    """Load manual review overrides: {approach: {id: "accept"|"reject"}}"""
-    if REVIEWS_FILE.exists():
-        with open(REVIEWS_FILE) as f:
-            return json.load(f)
-    return {}
-
-
-def save_reviews(reviews):
-    with open(REVIEWS_FILE, "w") as f:
-        json.dump(reviews, f, indent=2)
 
 
 def load_results(approach):
@@ -110,71 +98,44 @@ def commands_match(got, accepted_list):
     return False
 
 
-def score_one(result, prompt_info, alternates, review_override=None):
+def score_one(result, prompt_info, alternates):
     """Score a single result."""
     got = result.get("result", "").strip()
     accepted = alternates.get(prompt_info["id"], [prompt_info["expected"]])
 
-    scores = {
-        "tier": "wrong",  # exact, accept, command, error, wrong
-        "command_correct": False,
-    }
-
-    # Exact match always wins — check before reviews (reviews are from older runs)
-    if commands_match(got, accepted):
-        scores["tier"] = "exact"
-        scores["command_correct"] = True
-        return scores
-
-    # Check manual review override (only for non-exact results)
-    if review_override == "accept":
-        scores["tier"] = "accept"
-        scores["command_correct"] = True
-        return scores
-    if review_override == "reject":
-        scores["tier"] = "wrong"
-        return scores
-
     # Error states
     if not got or got == "ERROR":
-        scores["tier"] = "error"
-        return scores
+        return "error"
     if any(tag in got.lower() for tag in ["guardrail", "blocked", "[error", "[timeout", "[overflow"]):
-        scores["tier"] = "error"
-        return scores
+        return "error"
 
-    # Exact match already checked above (before reviews)
-        return scores
+    # Exact match against accepted answers
+    if commands_match(got, accepted):
+        return "exact"
 
-    # Command-level match
+    # Right base command, wrong flags — needs human review
     expected_cmds = set(extract_base_command(a) for a in accepted)
     got_cmd = extract_base_command(got)
     if got_cmd and got_cmd in expected_cmds:
-        scores["command_correct"] = True
-        scores["tier"] = "command"
-    else:
-        scores["tier"] = "wrong"
+        return "review"
 
-    return scores
+    return "wrong"
 
 
 def score_approach(approach, category_filter=None):
     prompts = load_prompts()
     alternates = load_alternates()
-    reviews = load_reviews().get(approach, {})
     results = load_results(approach)
 
     stats = {
         "total": 0,
         "exact": 0,
-        "accept": 0,
-        "command": 0,
-        "error": 0,
+        "review": 0,
         "wrong": 0,
-        "by_category": defaultdict(lambda: {"total": 0, "exact": 0, "accept": 0, "command": 0, "error": 0, "wrong": 0}),
+        "error": 0,
+        "by_category": defaultdict(lambda: {"total": 0, "exact": 0, "review": 0, "wrong": 0, "error": 0}),
         "times": [],
         "failures": [],
-        "needs_review": [],
     }
 
     for r in results:
@@ -186,10 +147,8 @@ def score_approach(approach, category_filter=None):
         if category_filter and pinfo["category"] != category_filter:
             continue
 
-        override = reviews.get(str(pid))
-        scores = score_one(r, pinfo, alternates, override)
+        tier = score_one(r, pinfo, alternates)
         cat = pinfo["category"]
-        tier = scores["tier"]
 
         stats["total"] += 1
         stats[tier] += 1
@@ -199,19 +158,15 @@ def score_approach(approach, category_filter=None):
         if r.get("total_time"):
             stats["times"].append(r["total_time"])
 
-        if tier not in ("exact", "accept"):
-            entry = {
+        if tier != "exact":
+            stats["failures"].append({
                 "id": pid,
                 "prompt": pinfo["prompt"],
                 "expected": pinfo["expected"],
                 "got": r.get("result", ""),
                 "category": cat,
                 "tier": tier,
-                "command_correct": scores["command_correct"],
-            }
-            stats["failures"].append(entry)
-            if tier == "command":
-                stats["needs_review"].append(entry)
+            })
 
     return stats
 
@@ -223,9 +178,8 @@ def print_summary(approach, stats):
         return
 
     exact_pct = stats["exact"] / total * 100
-    accept_pct = stats["accept"] / total * 100
-    usable_pct = (stats["exact"] + stats["accept"]) / total * 100
-    cmd_pct = (stats["exact"] + stats["accept"] + stats["command"]) / total * 100
+    review_pct = stats["review"] / total * 100
+    wrong_pct = stats["wrong"] / total * 100
     err_pct = stats["error"] / total * 100
     avg_time = sum(stats["times"]) / len(stats["times"]) if stats["times"] else 0
 
@@ -233,22 +187,20 @@ def print_summary(approach, stats):
     print(f"  {approach.upper()}")
     print(f"{'=' * 70}")
     print(f"  Total prompts:     {total}")
-    print(f"  Exact match:       {stats['exact']:3d} ({exact_pct:4.0f}%)  <- matches accepted answer")
-    print(f"  Accepted:          {stats['accept']:3d} ({accept_pct:4.0f}%)  <- manually reviewed as correct")
-    print(f"  ─────────────────────────────────")
-    print(f"  Usable (E+A):      {stats['exact']+stats['accept']:3d} ({usable_pct:4.0f}%)")
-    print(f"  Right cmd/wrong fl:{stats['command']:3d}           <- correct command, wrong flags")
-    print(f"  Wrong command:     {stats['wrong']:3d}           <- completely wrong")
-    print(f"  Errors:            {stats['error']:3d} ({err_pct:4.0f}%)  <- guardrail/timeout/empty")
+    print(f"  Exact match:       {stats['exact']:3d} ({exact_pct:4.0f}%)")
+    print(f"  Needs review:      {stats['review']:3d} ({review_pct:4.0f}%)  <- right command, wrong flags")
+    print(f"  Wrong:             {stats['wrong']:3d} ({wrong_pct:4.0f}%)")
+    print(f"  Errors:            {stats['error']:3d} ({err_pct:4.0f}%)")
     print(f"  Avg time:          {avg_time:.1f}s")
-    print(f"  Needs review:      {len(stats['needs_review']):3d}           <- right cmd, might be usable")
+    print(f"  ─────────────────────────────────")
+    print(f"  Best case (E+R):   {stats['exact']+stats['review']:3d} ({(stats['exact']+stats['review'])/total*100:4.0f}%)")
 
     print(f"\n  By category:")
-    print(f"    {'':12s}  {'exact':>5}  {'accpt':>5}  {'cmd':>5}  {'wrong':>5}  {'error':>5}  {'total':>5}")
+    print(f"    {'':12s}  {'exact':>5}  {'revew':>5}  {'wrong':>5}  {'error':>5}  {'total':>5}")
     for cat in sorted(stats["by_category"]):
         c = stats["by_category"][cat]
         if c["total"] > 0:
-            print(f"    {cat:12s}  {c['exact']:5d}  {c['accept']:5d}  {c['command']:5d}  {c['wrong']:5d}  {c['error']:5d}  {c['total']:5d}")
+            print(f"    {cat:12s}  {c['exact']:5d}  {c['review']:5d}  {c['wrong']:5d}  {c['error']:5d}  {c['total']:5d}")
 
 
 def print_failures(approach, stats):
@@ -256,7 +208,7 @@ def print_failures(approach, stats):
     print(f"  FAILURES: {approach.upper()}")
     print(f"{'=' * 70}")
     for f in stats["failures"]:
-        markers = {"command": "~", "wrong": "X", "error": "!"}
+        markers = {"review": "~", "wrong": "X", "error": "!"}
         marker = markers.get(f["tier"], "?")
         print(f"  [{marker}] #{f['id']} ({f['category']}) [{f['tier']}]")
         print(f"      prompt:   {f['prompt']}")
@@ -292,9 +244,9 @@ def print_comparison(approaches, category_filter=None):
         for a in approaches:
             r = all_results.get(a, {}).get(pid, {})
             got = r.get("result", "—")[:col_w - 2]
-            scores = score_one(r, pinfo, alternates)
-            markers = {"exact": "+", "accept": "a", "command": "~", "error": "!", "wrong": "-"}
-            marker = markers.get(scores["tier"], "?")
+            tier = score_one(r, pinfo, alternates)
+            markers = {"exact": "+", "review": "~", "error": "!", "wrong": "-"}
+            marker = markers.get(tier, "?")
             row += f" {marker}{got:<{col_w - 1}}"
         print(row)
 
@@ -311,55 +263,6 @@ def print_comparison(approaches, category_filter=None):
     print(summary)
 
 
-def interactive_review(approaches):
-    """Interactively review near-misses (right command, wrong flags)."""
-    prompts = load_prompts()
-    alternates = load_alternates()
-    reviews = load_reviews()
-
-    for approach in approaches:
-        stats = score_approach(approach)
-        needs_review = stats["needs_review"]
-        if not needs_review:
-            continue
-
-        print(f"\n{'=' * 70}")
-        print(f"  REVIEW: {approach.upper()} ({len(needs_review)} items)")
-        print(f"{'=' * 70}")
-
-        if approach not in reviews:
-            reviews[approach] = {}
-
-        for item in needs_review:
-            pid = str(item["id"])
-            if pid in reviews[approach]:
-                continue  # already reviewed
-
-            print(f"\n  #{item['id']} ({item['category']})")
-            print(f"  Prompt:   {item['prompt']}")
-            print(f"  Expected: {item['expected']}")
-            print(f"  Got:      {item['got']}")
-            accepted = alternates.get(item["id"], [])
-            if accepted:
-                print(f"  Also OK:  {', '.join(accepted[:3])}")
-
-            while True:
-                choice = input("  [a]ccept / [r]eject / [s]kip / [q]uit? ").strip().lower()
-                if choice in ("a", "accept"):
-                    reviews[approach][pid] = "accept"
-                    break
-                elif choice in ("r", "reject"):
-                    reviews[approach][pid] = "reject"
-                    break
-                elif choice in ("s", "skip"):
-                    break
-                elif choice in ("q", "quit"):
-                    save_reviews(reviews)
-                    return
-
-        save_reviews(reviews)
-    print("\nReviews saved.")
-
 
 def main():
     import argparse
@@ -368,7 +271,6 @@ def main():
     parser.add_argument("--compare", action="store_true", help="Side-by-side comparison")
     parser.add_argument("--failures", action="store_true", help="Show failures only")
     parser.add_argument("--category", help="Filter by category")
-    parser.add_argument("--review", action="store_true", help="Interactive review of near-misses")
     args = parser.parse_args()
 
     available = sorted(f.stem for f in RESULTS_DIR.glob("*.jsonl")) if RESULTS_DIR.exists() else []
@@ -376,11 +278,6 @@ def main():
     if not available:
         print("No results found. Run python3 run.py first.")
         sys.exit(1)
-
-    if args.review:
-        approaches = [args.approach] if args.approach else available
-        interactive_review(approaches)
-        return
 
     if args.compare:
         print_comparison(available, args.category)

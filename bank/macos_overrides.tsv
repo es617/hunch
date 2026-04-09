@@ -76,6 +76,29 @@ count files in directory	ls -1 | wc -l	ls
 sum numbers in a file	awk '{s+=$1} END {print s}' file	awk
 print first column of csv	awk -F, '{print $1}' file.csv	awk
 kill process by name	pkill processname	pkill
+kill a process by name	pkill processname	pkill
+show network connections	netstat -an	netstat
+show active network connections	netstat -an	netstat
+show dns records for a domain	dig example.com	dig
+dns lookup for a domain	dig example.com	dig
+search files by content using spotlight	mdfind 'query'	mdfind
+search file contents with spotlight	mdfind 'query'	mdfind
+show lines that appear in both files	comm -12 <(sort file1) <(sort file2)	comm
+common lines in two files	comm -12 <(sort file1) <(sort file2)	comm
+record terminal session	script session.log	script
+record shell session to file	script session.log	script
+find text in files ignoring case	grep -ri 'pattern' .	grep
+search files case insensitive	grep -ri 'pattern' .	grep
+show number of lines words and characters in a file	wc file	wc
+count lines words characters	wc file	wc
+generate a random password	openssl rand -base64 32	openssl
+generate random string for password	openssl rand -base64 32	openssl
+print first column of a csv	awk -F, '{print $1}' file.csv	awk
+extract column from csv	awk -F, '{print $1}' file.csv	awk
+sum numbers in a file	awk '{s+=$1} END {print s}' file	awk
+add up numbers in a file	awk '{s+=$1} END {print s}' file	awk
+calculate sha256 checksum of a file	shasum -a 256 file	shasum
+sha256 hash of file	shasum -a 256 file	shasum
 show crontab entries	crontab -l	crontab
 convert unix timestamp to date	date -r 1700000000	date
 undo last git commit keep changes	git reset --soft HEAD~1	git

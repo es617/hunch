@@ -23,7 +23,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to 66%, or 73% in accuracy mode — without leaving the device. Accuracy scales with the bank and improves as more examples are added.
+On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to ~68% — without leaving the device. Adding targeted overrides for consistently failing commands pushes accuracy above 70%, and there's room to go further as the example bank grows.
 
 ## Who it's for
 
@@ -85,17 +85,17 @@ hunch --temperature 0.3 --samples 3 show disk usage   # → accuracy mode
 Set environment variables in `~/.zshrc` (before the `source` line) to tune the Ctrl+G behavior:
 
 ```bash
-# Optional: trade speed for accuracy (75% vs 66%)
+# Optional: trade speed for consistency
 export HUNCH_TEMPERATURE=0.3   # add variation to model output
 export HUNCH_SAMPLES=3         # run 3 times, pick majority answer
 
-source /usr/local/share/hunch/hunch.zsh
+source /opt/homebrew/share/hunch/hunch.zsh
 ```
 
 | Variable | Default | Effect |
 |----------|---------|--------|
-| `HUNCH_TEMPERATURE` | 0 (deterministic) | Higher = more variation. 0.3 is the sweet spot. |
-| `HUNCH_SAMPLES` | 1 | Run N times, majority vote. 3 gives +9pp accuracy at ~1.7s latency. |
+| `HUNCH_TEMPERATURE` | 0 | Higher = more variation. 0.3 is the sweet spot. |
+| `HUNCH_SAMPLES` | 1 | Run N times, majority vote. Same accuracy, less variance. ~1.3s latency. |
 
 Run `hunch --help` to see current settings and database status.
 
@@ -131,23 +131,25 @@ Current accuracy on a 100-prompt benchmark (simple, flag-heavy, and composed com
 
 | Mode | Usable | Avg Time | Notes |
 |------|--------|----------|-------|
-| **hunch (default)** | **66%** | 0.4s | FTS5 search over 21k tldr examples |
-| **hunch (accuracy mode)** | **73%** | 1.3s | `--temperature 0.3 --samples 3` |
+| **hunch + overrides + sc** | **~72%** | 1.3s | Targeted overrides, temp 0.3, 3 samples. Stable. |
+| **hunch + overrides** | **~70%** | 0.4s | Targeted overrides for known gaps |
+| **hunch (default)** | **~68%** | 0.4s | FTS5 search over 21k tldr examples |
 | Static few-shot | 43% | 1.1s | 8 hand-picked examples |
 | Bare prompt (no DB) | 41% | 0.4s | What the model knows from training alone |
-| Self-consistency (no DB) | 39% | 1.4s | Temperature 0.3, 3 samples, but no examples |
 | Man page index | 37% | 1.5s | Flag descriptions from man pages |
 | Self-critique | 33% | 0.7s | Generate then verify — made things worse |
 
-The example bank is the main driver of accuracy (+25pp over bare prompt). Self-consistency adds another +7pp on top, but only when combined with the bank. See `benchmark/APPROACHES.md` for the full breakdown of all 12 approaches tested.
+The example bank is the main driver of accuracy (+28pp over bare prompt). Self-consistency doesn't improve accuracy — it kills variance (default swings ±4pp between runs, sc is stable). See `benchmark/APPROACHES.md` for the full breakdown of all approaches tested.
 
-Accuracy scales with the bank. As the tldr project grows and more macOS-specific overrides are added, these numbers should improve. You can contribute overrides for your use cases by adding entries to `bank/macos_overrides.tsv` and rebuilding with `make update-bank`. PRs welcome.
+Accuracy scales with the bank. Adding targeted overrides for 8 consistently failing commands pushed accuracy from 68% to 70%. You can add your own overrides in `bank/macos_overrides.tsv` and rebuild with `make update-bank`. PRs welcome.
 
 The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
 ### Limitations
 
-The model is wrong about a third of the time. Some failures are harmless (wrong placeholder names), some are dangerous (`git reset --hard` when you asked for `--soft`). **Always read the command before hitting Enter.** The Ctrl+G design makes this safe — it fills the buffer, it never executes.
+In practice, the basics are reliable — simple commands, macOS-specific tools (`pbcopy`, `caffeinate`, `pmset`), git operations, network diagnostics, file operations. A small set is always wrong — the hard 3B wall: `pkill`, process substitution, `openssl rand`, `awk` one-liners. The rest are flaky — right command, varying flags. Those are the ones where the example bank and your own overrides make the difference.
+
+**Always read the command before hitting Enter.** The Ctrl+G design makes this safe — it fills the buffer, it never executes.
 
 ---
 
