@@ -51,6 +51,41 @@ func majorityVote(_ candidates: [String]) -> String {
     return counts.max(by: { $0.value < $1.value })?.key ?? candidates[0]
 }
 
+func validateCommand(_ command: String, dbPath: String?) -> (valid: Bool, error: String?) {
+    let trimmed = command.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else {
+        return (false, "empty command")
+    }
+
+    // Extract base command (skip sudo, env, command prefixes)
+    let parts = trimmed.split(separator: " ", maxSplits: 10).map(String.init)
+    let skipPrefixes: Set<String> = ["sudo", "env", "command"]
+    var baseCmd = ""
+    for part in parts {
+        if skipPrefixes.contains(part) { continue }
+        if part.contains("=") { continue }
+        baseCmd = part
+        break
+    }
+
+    // Check if base command exists using access() — no process spawn
+    if !baseCmd.isEmpty && !baseCmd.contains("/") {
+        let searchPaths = ["/usr/bin", "/usr/sbin", "/bin", "/sbin",
+                          "/opt/homebrew/bin", "/usr/local/bin"]
+        let found = searchPaths.contains { access("\($0)/\(baseCmd)", X_OK) == 0 }
+        if !found {
+            // Not installed locally — check if it's a known command in the bank
+            if let dbPath, commandExistsInBank(dbPath: dbPath, command: baseCmd) {
+                return (true, nil)  // Real tool, just not installed
+            }
+            return (false, "'\(baseCmd)' not found on this system")
+        }
+    }
+
+    return (true, nil)
+}
+
+
 func findDatabase() -> String? {
     let candidates = [
         URL(fileURLWithPath: CommandLine.arguments[0])
@@ -123,8 +158,9 @@ struct Hunch {
         let fullQuery = args.joined(separator: " ")
 
         // Search bank
+        let dbPath = findDatabase()
         var examples: [BankResult] = []
-        if let dbPath = findDatabase() {
+        if let dbPath {
             switch mode {
             case .suggest:
                 examples = searchBank(dbPath: dbPath, query: fullQuery, limit: limit)
@@ -179,13 +215,39 @@ struct Hunch {
             } else if guided == nil {
                 // Default: plain string output with stripMarkdown
                 if samples <= 1 {
+                    var command: String
                     let response: LanguageModelSession.Response<String>
                     if let opts = genOptions {
                         response = try await session.respond(to: fullQuery, options: opts)
                     } else {
                         response = try await session.respond(to: fullQuery)
                     }
-                    print(stripMarkdown(response.content))
+                    command = stripMarkdown(response.content)
+
+                    // Validate and retry once if invalid
+                    let check = validateCommand(command, dbPath: dbPath)
+                    if !check.valid, let error = check.error {
+                        if ProcessInfo.processInfo.environment["HUNCH_DEBUG"] != nil {
+                            fputs("validation failed: \(error) — retrying\n", stderr)
+                        }
+                        let retrySession = LanguageModelSession(
+                            model: model,
+                            transcript: session.transcript
+                        )
+                        let safeCmd = String(command.prefix(80)).replacingOccurrences(of: "\n", with: " ")
+                        let retryPrompt = "\(fullQuery)\n\nThe previous answer \"\(safeCmd)\" is wrong: \(error). Try a different command."
+                        let retry: LanguageModelSession.Response<String>
+                        if let opts = genOptions {
+                            retry = try await retrySession.respond(to: retryPrompt, options: opts)
+                        } else {
+                            retry = try await retrySession.respond(to: retryPrompt)
+                        }
+                        let retryCmd = stripMarkdown(retry.content)
+                        let recheck = validateCommand(retryCmd, dbPath: dbPath)
+                        command = recheck.valid ? retryCmd : command
+                    }
+
+                    print(command)
                 } else {
                     var results: [String] = []
                     for _ in 0..<samples {
