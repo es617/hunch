@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.2
+
+- Improved system prompt: model now prefers retrieved examples over pretraining guesses
+- Fixed FTS5 stop words: command names (`find`, `show`, `list`, `display`) no longer dropped from search queries
+- Added 28 targeted overrides for common patterns missing from tldr (`find -size`, `find -mtime`, `find -user`, `curl -I`, `grep --include`, and more)
+- Expanded benchmark alternates for more accurate automated scoring
+- Benchmark accuracy: **~78%** (up from ~70% in v0.1.1)
+- Added experimental `--guided` flag for Apple FoundationModels constrained decoding (undocumented)
+
 ## 0.1.1
 
 - Fix: don't pass empty GenerationOptions when no temperature is set (was changing model behavior)

@@ -23,7 +23,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to ~68% — without leaving the device. Adding targeted overrides for consistently failing commands pushes accuracy above 70%, and there's room to go further as the example bank grows.
+On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to **~78%** — without leaving the device. Accuracy scales with the bank: more examples = better results.
 
 ## Who it's for
 
@@ -127,27 +127,26 @@ The key insight: the 3B model is a pattern-copier, not a reasoner. Feeding it do
 
 ## Benchmark
 
-Current accuracy on a 100-prompt benchmark (simple, flag-heavy, and composed commands), scored end-to-end through the shipped CLI:
+100-prompt benchmark (simple, flag-heavy, and composed commands), scored end-to-end through the shipped CLI:
 
-| Mode | Usable | Avg Time | Notes |
-|------|--------|----------|-------|
-| **hunch + overrides + sc** | **~72%** | 1.3s | Targeted overrides, temp 0.3, 3 samples. Stable. |
-| **hunch + overrides** | **~70%** | 0.4s | Targeted overrides for known gaps |
-| **hunch (default)** | **~68%** | 0.4s | FTS5 search over 21k tldr examples |
-| Static few-shot | 43% | 1.1s | 8 hand-picked examples |
+| Mode | Accuracy | Avg Time | Notes |
+|------|----------|----------|-------|
+| **hunch (shipped)** | **~78%** | 0.5s | FTS5 retrieval + overrides + tuned prompt |
+| hunch (retrieval only) | ~72% | 0.5s | Before adding targeted overrides |
 | Bare prompt (no DB) | 41% | 0.4s | What the model knows from training alone |
+| Static few-shot | 43% | 1.1s | 8 hand-picked examples |
 | Man page index | 37% | 1.5s | Flag descriptions from man pages |
 | Self-critique | 33% | 0.7s | Generate then verify — made things worse |
 
-The example bank is the main driver of accuracy (+28pp over bare prompt). Self-consistency doesn't improve accuracy — it kills variance (default swings ±4pp between runs, sc is stable). See `benchmark/APPROACHES.md` for the full breakdown of all approaches tested.
+The example bank is the main driver of accuracy (+37pp over bare prompt). The shipped bank includes targeted overrides for common patterns where the base tldr pages had gaps (e.g., `find -size`, `curl -I`, `grep --include`). These overrides were developed by analyzing benchmark failures, so the 78% figure reflects the shipped product rather than an independent test. The 72% retrieval-only number was measured before adding those overrides.
 
-Accuracy scales with the bank. Adding targeted overrides for 8 consistently failing commands pushed accuracy from 68% to 70%. You can add your own overrides in `bank/macos_overrides.tsv` and rebuild with `make update-bank`. PRs welcome.
+You can add your own overrides in `bank/macos_overrides.tsv` and rebuild with `make update-bank`. PRs welcome. See `benchmark/APPROACHES.md` for the full breakdown of all approaches tested.
 
 The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
 ### Limitations
 
-In practice, the basics are reliable — simple commands, macOS-specific tools (`pbcopy`, `caffeinate`, `pmset`), git operations, network diagnostics, file operations. A small set is always wrong — the hard 3B wall: `pkill`, process substitution, `openssl rand`, `awk` one-liners. The rest are flaky — right command, varying flags. Those are the ones where the example bank and your own overrides make the difference.
+In practice, the basics are reliable — simple commands, macOS-specific tools (`pbcopy`, `caffeinate`, `sips`), git operations, network diagnostics, file operations. A small set remains flaky — right command, varying flags. Those are where the example bank and your own overrides make the difference.
 
 **Always read the command before hitting Enter.** The Ctrl+G design makes this safe — it fills the buffer, it never executes.
 
