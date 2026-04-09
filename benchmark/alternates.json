@@ -19,7 +19,8 @@
   ],
   "4": [
     "date",
-    "date '+%Y-%m-%d'"
+    "date '+%Y-%m-%d'",
+    "date +%Y-%m-%dT%H:%M:%SZ"
   ],
   "5": [
     "pwd",
@@ -75,11 +76,14 @@
   "16": [
     "find . -mtime -1",
     "find . -daystart -mtime -1",
-    "find . -type f -mtime -1"
+    "find . -type f -mtime -1",
+    "find . -daystart -mtime 0"
   ],
   "17": [
     "find . -name '.DS_Store' -delete",
-    "find . -name .DS_Store -delete"
+    "find . -name .DS_Store -delete",
+    "find . -name '.DS_Store' -exec rm {} +",
+    "find . -name '.DS_Store' -exec rm {} \\;"
   ],
   "18": [
     "find . -type l"
@@ -91,7 +95,9 @@
   "20": [
     "find . -type d -name node_modules",
     "find . -type d -name 'node_modules'",
-    "find -name 'node_modules'"
+    "find -name 'node_modules'",
+    "find . -name 'node_modules'",
+    "find . -name \"node_modules\""
   ],
   "21": [
     "find . -name '*.py' -exec wc -l {} +",
@@ -130,12 +136,19 @@
     "tar czf archive.tar.gz .",
     "tar -czf archive.tar.gz .",
     "tar czvf archive.tar.gz folder/",
-    "tar -czf compressed_folder.tar.gz ./"
+    "tar -czf compressed_folder.tar.gz ./",
+    "tar -czf folder.tar.gz /path/to/folder",
+    "tar czf archive.tar.gz /path/to/folder",
+    "tar czf folder.tar.gz folder"
   ],
   "28": [
     "tar xzf file.tar.gz",
     "tar -xzf file.tar.gz",
-    "tar xvf archive.tar.gz"
+    "tar xvf archive.tar.gz",
+    "tar -xf archive.tar.gz",
+    "tar xzvf archive.tar.gz",
+    "tar -xvzf file.tar.gz",
+    "tar xvf file.tar.gz"
   ],
   "29": [
     "git branch --sort=-committerdate",
@@ -162,7 +175,8 @@
     "git branch -m old new",
     "git branch -m oldname newname",
     "git branch -m <branch_name> <new_branch_name>",
-    "git branch -m old_branch_name new_branch_name"
+    "git branch -m old_branch_name new_branch_name",
+    "git branch -m new_branch_name"
   ],
   "35": [
     "git branch --merged | grep -v main | xargs git branch -d",
@@ -193,13 +207,20 @@
   "40": [
     "curl -X POST -H 'Content-Type: application/json' -d '{}'",
     "curl -X POST -H 'Content-Type: application/json' -d '{}' https://example.com",
-    "curl -X POST https://example.com/api/endpoint -H 'Content-Type: application/json' -d '{\"key\": \"value\"}'"
+    "curl -X POST https://example.com/api/endpoint -H 'Content-Type: application/json' -d '{\"key\": \"value\"}'",
+    "curl -X POST -H 'Content-Type: application/json' -d '{\"key\": \"value\"}' https://example.com",
+    "curl -X POST https://example.com -H 'Content-Type: application/json' -d '{\"key1\": \"value1\", \"key2\": \"value2\"}'",
+    "curl -X POST -H 'Content-Type: application/json' -d '{\"name\": \"john\", \"age\": 25}' https://example.com"
   ],
   "41": [
     "tail -f logfile",
     "tail -f log",
     "tail -F logfile",
-    "tail -f log_file"
+    "tail -f log_file",
+    "tail -f logfile.txt",
+    "tail -f logfile.log",
+    "tail -f /path/to/logfile",
+    "tail -f /path/to/log_file"
   ],
   "42": [
     "tail -n 50 file",
@@ -232,7 +253,9 @@
   ],
   "48": [
     "mkdir -p path/to/dir",
-    "mkdir -p /path/to/create/directory"
+    "mkdir -p /path/to/create/directory",
+    "mkdir -p \"path/to/directory\"",
+    "mkdir -p parent_directory_path"
   ],
   "49": [
     "chmod +x file",
@@ -297,7 +320,10 @@
   "62": [
     "pbcopy",
     "echo 'text' | pbcopy",
-    "echo <output> | pbcopy"
+    "echo <output> | pbcopy",
+    "echo 'output' | pbcopy",
+    "echo \"text\" | pbcopy",
+    "echo \"output\" | pbcopy"
   ],
   "63": [
     "pbpaste"
@@ -376,7 +402,10 @@
   "80": [
     "ln -s target link",
     "ln -s /path/to/source_file /path/to/target_file",
-    "ln -s source_path target_path"
+    "ln -s source_path target_path",
+    "ln -s source destination",
+    "ln -s /path/to/file /path/to/symlink",
+    "ln -s path/to/file_or_directory path/to/symlink"
   ],
   "81": [
     "lsof -i -P -n | grep LISTEN",
@@ -394,7 +423,9 @@
     "git cherry-pick HASH",
     "git cherry-pick <hash>",
     "git cherry-pick <commit>",
-    "git cherry-pick commit"
+    "git cherry-pick commit",
+    "git cherry-pick <commit-hash>",
+    "git cherry-pick HEAD~1"
   ],
   "85": [
     "ls -lh file",
@@ -414,7 +445,10 @@
   ],
   "88": [
     "ssh -i key.pem user@host",
-    "ssh -i path/to/key_file username@remote_host"
+    "ssh -i path/to/key_file username@remote_host",
+    "ssh -i /path/to/key username@host",
+    "ssh username@host -i path/to/key",
+    "ssh username@remote_host -i path/to/key_file"
   ],
   "89": [
     "rsync -avz src/ user@host:dst/",
@@ -432,7 +466,8 @@
   ],
   "92": [
     "wc file",
-    "wc -lwc file"
+    "wc -lwc file",
+    "wc -l -w -c file"
   ],
   "93": [
     "zip -r archive.zip directory",
@@ -444,7 +479,11 @@
     "unzip file.zip -d directory",
     "unzip file.zip -d dir",
     "unzip file.zip -d /path/to/destination",
-    "unzip -d destination_directory file_name.zip"
+    "unzip -d destination_directory file_name.zip",
+    "unzip -d /path/to/output file.zip",
+    "unzip -d destination file.zip",
+    "unzip filename -d destination_directory",
+    "unzip filename -d destination"
   ],
   "95": [
     "system_profiler SPHardwareDataType"

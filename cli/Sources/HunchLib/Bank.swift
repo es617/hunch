@@ -13,8 +13,7 @@ public struct BankResult: Equatable, Sendable {
 
 public let defaultStopWords: Set<String> = [
     "the", "a", "an", "in", "on", "to", "for", "of", "and", "or", "is", "it",
-    "all", "my", "this", "that", "with", "from", "how", "do", "what", "show",
-    "get", "find", "list", "display"
+    "all", "my", "this", "that", "with", "from", "how", "do", "what"
 ]
 
 public func tokenize(_ text: String, stopWords: Set<String> = defaultStopWords) -> [String] {

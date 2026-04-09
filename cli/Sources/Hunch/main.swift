@@ -2,6 +2,55 @@ import Foundation
 import FoundationModels
 import HunchLib
 
+// Guided generation strategies
+@Generable
+struct ShellCommand {
+    @Guide(description: "A single shell command for zsh on macOS. No explanation, no markdown, no backticks.")
+    var command: String
+}
+
+@Generable
+struct ShellCommandCoT {
+    @Guide(description: "Brief reasoning: which macOS command fits and why. Consider if the command exists on macOS (not Linux-only).")
+    var reasoning: String
+
+    @Guide(description: "A single shell command for zsh on macOS.")
+    var command: String
+}
+
+@Generable
+struct ShellCommandMulti {
+    @Guide(description: "Best shell command for zsh on macOS.")
+    var first: String
+
+    @Guide(description: "Alternative shell command for the same task.")
+    var second: String
+
+    @Guide(description: "Another alternative shell command.")
+    var third: String
+}
+
+@Generable
+struct ShellCommandCoTMulti {
+    @Guide(description: "Brief reasoning: which macOS command fits and why. Consider if the command exists on macOS (not Linux-only).")
+    var reasoning: String
+
+    @Guide(description: "Best shell command for zsh on macOS.")
+    var first: String
+
+    @Guide(description: "Alternative shell command for the same task.")
+    var second: String
+
+    @Guide(description: "Another alternative shell command.")
+    var third: String
+}
+
+func majorityVote(_ candidates: [String]) -> String {
+    var counts: [String: Int] = [:]
+    for c in candidates { counts[c, default: 0] += 1 }
+    return counts.max(by: { $0.value < $1.value })?.key ?? candidates[0]
+}
+
 func findDatabase() -> String? {
     let candidates = [
         URL(fileURLWithPath: CommandLine.arguments[0])
@@ -54,6 +103,7 @@ struct Hunch {
         let temperature = parseFlag(&args, flag: "--temperature").flatMap(Double.init)
         let samples = parseFlag(&args, flag: "--samples").flatMap(Int.init) ?? 1
         let limit = parseFlag(&args, flag: "--limit").flatMap(Int.init) ?? 8
+        let guided = parseFlag(&args, flag: "--guided")
 
         // Parse mode
         var mode: Mode = .suggest
@@ -118,36 +168,80 @@ struct Hunch {
                 fputs("warning: --samples without --temperature is useless (model is deterministic at temp 0). Add --temperature 0.3\n", stderr)
             }
 
-            if samples <= 1 {
+            if mode == .explain {
                 let response: LanguageModelSession.Response<String>
                 if let opts = genOptions {
                     response = try await session.respond(to: fullQuery, options: opts)
                 } else {
                     response = try await session.respond(to: fullQuery)
                 }
-                print(stripMarkdown(response.content))
-            } else {
-                // Self-consistency: run N times, pick majority
-                var results: [String] = []
-                for _ in 0..<samples {
-                    let s = LanguageModelSession(
-                        model: model,
-                        transcript: session.transcript
-                    )
+                print(response.content)
+            } else if guided == nil {
+                // Default: plain string output with stripMarkdown
+                if samples <= 1 {
                     let response: LanguageModelSession.Response<String>
                     if let opts = genOptions {
-                        response = try await s.respond(to: fullQuery, options: opts)
+                        response = try await session.respond(to: fullQuery, options: opts)
                     } else {
-                        response = try await s.respond(to: fullQuery)
+                        response = try await session.respond(to: fullQuery)
                     }
-                    results.append(stripMarkdown(response.content))
+                    print(stripMarkdown(response.content))
+                } else {
+                    var results: [String] = []
+                    for _ in 0..<samples {
+                        let s = LanguageModelSession(model: model, transcript: session.transcript)
+                        let response: LanguageModelSession.Response<String>
+                        if let opts = genOptions {
+                            response = try await s.respond(to: fullQuery, options: opts)
+                        } else {
+                            response = try await s.respond(to: fullQuery)
+                        }
+                        results.append(stripMarkdown(response.content))
+                    }
+                    print(majorityVote(results))
                 }
-
-                // Majority vote
-                var counts: [String: Int] = [:]
-                for r in results { counts[r, default: 0] += 1 }
-                let best = counts.max(by: { $0.value < $1.value })?.key ?? results[0]
-                print(best)
+            } else if guided == "plain" {
+                // Guided: single command struct
+                let response: LanguageModelSession.Response<ShellCommand>
+                if let opts = genOptions {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommand.self, options: opts)
+                } else {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommand.self)
+                }
+                print(response.content.command)
+            } else if guided == "cot" {
+                // Guided: chain of thought + command
+                let response: LanguageModelSession.Response<ShellCommandCoT>
+                if let opts = genOptions {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoT.self, options: opts)
+                } else {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoT.self)
+                }
+                if ProcessInfo.processInfo.environment["HUNCH_DEBUG"] != nil {
+                    fputs("reasoning: \(response.content.reasoning)\n", stderr)
+                }
+                print(response.content.command)
+            } else if guided == "multi" {
+                // Guided: 3 candidates, majority vote
+                let response: LanguageModelSession.Response<ShellCommandMulti>
+                if let opts = genOptions {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandMulti.self, options: opts)
+                } else {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandMulti.self)
+                }
+                print(majorityVote([response.content.first, response.content.second, response.content.third]))
+            } else if guided == "cotmulti" {
+                // Guided: chain of thought + 3 candidates, majority vote
+                let response: LanguageModelSession.Response<ShellCommandCoTMulti>
+                if let opts = genOptions {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoTMulti.self, options: opts)
+                } else {
+                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoTMulti.self)
+                }
+                print(majorityVote([response.content.first, response.content.second, response.content.third]))
+            } else {
+                fputs("error: unknown --guided strategy '\(guided!)'. Use: plain, cot, multi, cotmulti\n", stderr)
+                exit(1)
             }
         } catch {
             fputs("error: \(error.localizedDescription)\n", stderr)

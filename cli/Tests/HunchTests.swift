@@ -6,12 +6,12 @@ import Foundation
 
 @Test func tokenizeBasicQuery() {
     let tokens = tokenize("find files changed in the last hour")
-    #expect(tokens == ["files", "changed", "last", "hour"])
+    #expect(tokens == ["find", "files", "changed", "last", "hour"])
 }
 
 @Test func tokenizeRemovesStopWords() {
     let tokens = tokenize("show all the environment variables")
-    #expect(!tokens.contains("show"))
+    #expect(tokens.contains("show"))
     #expect(!tokens.contains("all"))
     #expect(!tokens.contains("the"))
     #expect(tokens.contains("environment"))
@@ -102,7 +102,7 @@ import Foundation
         BankResult(question: "list files", answer: "ls"),
     ]
     let prompt = buildSystemPrompt(mode: .suggest, examples: examples)
-    #expect(prompt.contains("Examples:"))
+    #expect(prompt.contains("prefer commands shown here:"))
     #expect(prompt.contains("Q: show disk usage"))
     #expect(prompt.contains("A: df -h"))
     #expect(prompt.contains("Q: list files"))

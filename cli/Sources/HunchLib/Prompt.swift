@@ -11,7 +11,7 @@ public func buildSystemPrompt(mode: Mode, examples: [BankResult]) -> String {
     case .suggest:
         var prompt = "Output a single shell command for zsh on macOS. No explanation, no markdown, no backticks. Just the command."
         if !examples.isEmpty {
-            prompt += "\n\nExamples:"
+            prompt += "\n\nUse these reference examples to answer — prefer commands shown here:"
             for ex in examples {
                 prompt += "\nQ: \(ex.question)\nA: \(ex.answer)"
             }

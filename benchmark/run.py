@@ -307,8 +307,7 @@ def approach_selfconsist_dynshot(prompt):
 
     words = re.findall(r'[a-zA-Z]+', prompt.lower())
     stop_words = {"the", "a", "an", "in", "on", "to", "for", "of", "and", "or", "is", "it",
-                  "all", "my", "this", "that", "with", "from", "how", "do", "what", "show",
-                  "get", "find", "list", "display"}
+                  "all", "my", "this", "that", "with", "from", "how", "do", "what"}
     words = [w for w in words if w not in stop_words and len(w) > 1]
     if not words:
         return approach_permissive(prompt)
@@ -458,6 +457,53 @@ def approach_hunch_sc(prompt):
         return {"result": "[TIMEOUT]", "total_time": elapsed}
 
 
+def _run_hunch(prompt, extra_args=None):
+    """Call hunch from PATH with optional extra arguments."""
+    cmd = ["hunch"]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.append(prompt)
+    start = time.time()
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=TIMEOUT)
+        elapsed = round(time.time() - start, 2)
+        output = result.stdout.strip()
+        if result.returncode != 0:
+            stderr = result.stderr.strip()
+            if "guardrail" in stderr.lower() or "unsafe" in stderr.lower():
+                return {"result": "[GUARDRAIL]", "total_time": elapsed}
+            return {"result": f"[ERROR:{result.returncode}] {stderr[:100]}", "total_time": elapsed}
+        return {"result": strip_markdown(output), "total_time": elapsed}
+    except subprocess.TimeoutExpired:
+        elapsed = round(time.time() - start, 2)
+        return {"result": "[TIMEOUT]", "total_time": elapsed}
+
+
+def approach_hunch_guided(prompt):
+    """Guided generation: plain struct."""
+    return _run_hunch(prompt, ["--guided", "plain"])
+
+
+def approach_hunch_cot(prompt):
+    """Guided generation: chain of thought + command."""
+    return _run_hunch(prompt, ["--guided", "cot"])
+
+
+def approach_hunch_multi(prompt):
+    """Guided generation: 3 candidates, majority vote in one pass."""
+    return _run_hunch(prompt, ["--guided", "multi"])
+
+
+def approach_hunch_cotmulti(prompt):
+    """Guided generation: chain of thought + 3 candidates."""
+    return _run_hunch(prompt, ["--guided", "cotmulti"])
+
+
+def approach_hunch_multi_warm(prompt):
+    """Guided generation: 3 candidates at temperature 0.3."""
+    return _run_hunch(prompt, ["--guided", "multi", "--temperature", "0.3"])
+
+
 def approach_dynshot_tldr(prompt):
     """Dynamic few-shot using tldr+overrides FTS5 index (21k entries)."""
     import sqlite3
@@ -468,8 +514,7 @@ def approach_dynshot_tldr(prompt):
     # FTS5 search
     words = re.findall(r'[a-zA-Z]+', prompt.lower())
     stop_words = {"the", "a", "an", "in", "on", "to", "for", "of", "and", "or", "is", "it",
-                  "all", "my", "this", "that", "with", "from", "how", "do", "what", "show",
-                  "get", "find", "list", "display"}
+                  "all", "my", "this", "that", "with", "from", "how", "do", "what"}
     words = [w for w in words if w not in stop_words and len(w) > 1]
     if not words:
         return approach_permissive(prompt)
@@ -526,6 +571,11 @@ APPROACHES = {
     "dynshot-holdout": approach_dynshot_holdout,
     "dynshot-tldr": approach_dynshot_tldr,
     "hunch": approach_hunch,
+    "hunch-guided": approach_hunch_guided,
+    "hunch-cot": approach_hunch_cot,
+    "hunch-multi": approach_hunch_multi,
+    "hunch-cotmulti": approach_hunch_cotmulti,
+    "hunch-multi-warm": approach_hunch_multi_warm,
     "hunch-sc": approach_hunch_sc,
     "sc-dynshot": approach_selfconsist_dynshot,
     "sc-warm": approach_selfconsist_warm,
