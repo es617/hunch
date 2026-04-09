@@ -23,7 +23,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to 66%, or 73% in accuracy mode — without leaving the device.
+On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to 66%, or 73% in accuracy mode — without leaving the device. Accuracy scales with the bank and improves as more examples are added.
 
 ## Who it's for
 
@@ -133,11 +133,15 @@ Current accuracy on a 100-prompt benchmark (simple, flag-heavy, and composed com
 |------|--------|----------|-------|
 | **hunch (default)** | **66%** | 0.4s | FTS5 search over 21k tldr examples |
 | **hunch (accuracy mode)** | **73%** | 1.3s | `--temperature 0.3 --samples 3` |
+| Static few-shot | 43% | 1.1s | 8 hand-picked examples |
 | Bare prompt (no DB) | 41% | 0.4s | What the model knows from training alone |
+| Self-consistency (no DB) | 39% | 1.4s | Temperature 0.3, 3 samples, but no examples |
+| Man page index | 37% | 1.5s | Flag descriptions from man pages |
+| Self-critique | 33% | 0.7s | Generate then verify — made things worse |
 
-The example bank is the main driver of accuracy (+25pp over bare prompt). See `benchmark/APPROACHES.md` for the full breakdown of all 12 approaches tested.
+The example bank is the main driver of accuracy (+25pp over bare prompt). Self-consistency adds another +7pp on top, but only when combined with the bank. See `benchmark/APPROACHES.md` for the full breakdown of all 12 approaches tested.
 
-These numbers are based on the current tldr bank and macOS overrides. You can improve accuracy for your use cases by adding entries to `bank/macos_overrides.tsv` and rebuilding with `make update-bank`. PRs with new overrides are welcome.
+Accuracy scales with the bank. As the tldr project grows and more macOS-specific overrides are added, these numbers should improve. You can contribute overrides for your use cases by adding entries to `bank/macos_overrides.tsv` and rebuilding with `make update-bank`. PRs welcome.
 
 The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
