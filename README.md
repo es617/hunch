@@ -23,7 +23,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-This takes accuracy from **40% to 66%** on a 100-prompt benchmark (73% in accuracy mode) — without leaving the device.
+On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to 66%, or 73% in accuracy mode — without leaving the device.
 
 ## Who it's for
 
@@ -127,25 +127,23 @@ The key insight: the 3B model is a pattern-copier, not a reasoner. Feeding it do
 
 ## Benchmark
 
-100 prompts across 12 approaches. Each result scored as exact match, manually accepted (functionally correct), or wrong. All numbers are end-to-end through the shipped CLI.
+Current accuracy on a 100-prompt benchmark (simple, flag-heavy, and composed commands), scored end-to-end through the shipped CLI:
 
 | Mode | Usable | Avg Time | Notes |
 |------|--------|----------|-------|
-| **hunch (accuracy mode)** | **73%** | 1.3s | `--temperature 0.3 --samples 3` |
 | **hunch (default)** | **66%** | 0.4s | FTS5 search over 21k tldr examples |
-| Static few-shot | 43% | 1.1s | 8 hand-picked examples |
-| Bare prompt | 41% | 0.4s | No examples, no DB |
-| Self-consistency (no DB) | 39% | 1.4s | Temperature 0.3, 3 samples, but no examples — useless |
-| Man page index | 37% | 1.5s | Flag descriptions from man pages |
-| Self-critique | 33% | 0.7s | Generate then verify — made things worse |
+| **hunch (accuracy mode)** | **73%** | 1.3s | `--temperature 0.3 --samples 3` |
+| Bare prompt (no DB) | 41% | 0.4s | What the model knows from training alone |
 
-The DB is the big win (+25pp). Self-consistency adds another +7pp on top, but only when combined with the DB. Without examples, temperature + voting does nothing.
+The example bank is the main driver of accuracy (+25pp over bare prompt). See `benchmark/APPROACHES.md` for the full breakdown of all 12 approaches tested.
+
+These numbers are based on the current tldr bank and macOS overrides. You can improve accuracy for your use cases by adding entries to `bank/macos_overrides.tsv` and rebuilding with `make update-bank`. PRs with new overrides are welcome.
 
 The benchmark suite is in `benchmark/` — run it yourself with `python3 benchmark/run.py`.
 
 ### Limitations
 
-The model gets ~66% right. The other ~34% can be wrong or dangerous — `git reset --hard` when you asked for `--soft`, Linux commands that don't exist on macOS, invented flags. **Always read the command before hitting Enter.** The Ctrl+G design makes this safe by default — it fills the buffer, it never executes.
+The model is wrong about a third of the time. Some failures are harmless (wrong placeholder names), some are dangerous (`git reset --hard` when you asked for `--soft`). **Always read the command before hitting Enter.** The Ctrl+G design makes this safe — it fills the buffer, it never executes.
 
 ---
 
