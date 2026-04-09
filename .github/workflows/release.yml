@@ -78,7 +78,10 @@ jobs:
 
             Add to `~/.zshrc`:
             ```
-            source /usr/local/share/hunch/hunch.zsh
+            # Homebrew:
+            source /opt/homebrew/share/hunch/hunch.zsh
+            # From source:
+            source ~/.local/share/hunch/hunch.zsh
             ```
 
             ---
