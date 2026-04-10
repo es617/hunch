@@ -86,6 +86,25 @@ func validateCommand(_ command: String, dbPath: String?) -> (valid: Bool, error:
 }
 
 
+func brewWhichFormula(_ command: String) -> String? {
+    let proc = Process()
+    proc.executableURL = URL(fileURLWithPath: "/opt/homebrew/bin/brew")
+    proc.arguments = ["which-formula", "--skip-update", command]
+    let pipe = Pipe()
+    proc.standardOutput = pipe
+    proc.standardError = FileHandle.nullDevice
+    do {
+        try proc.run()
+        proc.waitUntilExit()
+        guard proc.terminationStatus == 0 else { return nil }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return output?.isEmpty == false ? output : nil
+    } catch {
+        return nil
+    }
+}
+
 func findDatabase() -> String? {
     let candidates = [
         URL(fileURLWithPath: CommandLine.arguments[0])
@@ -177,17 +196,17 @@ struct Hunch {
         if mode == .notfound {
             let baseCmd = fullQuery.split(separator: " ").first.map(String.init) ?? fullQuery
 
-            // Check bank/overrides first
-            if let dbPath, let source = commandBankSource(dbPath: dbPath, command: baseCmd) {
-                if source == "override" {
-                    // Has a macOS equivalent — let LLM handle it
-                } else {
-                    // Known tool, not installed
-                    notfoundCategory = "install"
-                    notfoundDetail = baseCmd
-                }
+            // 1. Check overrides — these have macOS equivalents
+            if let dbPath, let source = commandBankSource(dbPath: dbPath, command: baseCmd),
+               source == "override" {
+                // Has a macOS equivalent — let LLM handle it
             }
-            // Then check typo (only if not already categorized)
+            // 2. Check brew for installable packages (authoritative)
+            else if let brewPkg = brewWhichFormula(baseCmd) {
+                notfoundCategory = "install"
+                notfoundDetail = brewPkg
+            }
+            // 3. Check typo (only if brew doesn't know it)
             else {
                 let similar = findSimilarCommands(baseCmd)
                 if !similar.isEmpty {
