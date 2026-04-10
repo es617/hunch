@@ -154,6 +154,7 @@ public func findSimilarCommands(_ command: String) -> [String] {
 }
 
 /// Check what source a command comes from in the bank (override, tldr-osx, tldr-common, or nil).
+/// Prioritizes override > tldr-osx > tldr-common if multiple sources exist.
 public func commandBankSource(dbPath: String, command: String) -> String? {
     var db: OpaquePointer?
     guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
@@ -161,7 +162,7 @@ public func commandBankSource(dbPath: String, command: String) -> String? {
     }
     defer { sqlite3_close(db) }
 
-    let sql = "SELECT source FROM bank WHERE cmd = ? LIMIT 1"
+    let sql = "SELECT source FROM bank WHERE cmd = ? ORDER BY CASE source WHEN 'override' THEN 0 WHEN 'tldr-osx' THEN 1 ELSE 2 END LIMIT 1"
     var stmt: OpaquePointer?
     guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
         return nil

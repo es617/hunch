@@ -177,21 +177,23 @@ struct Hunch {
         if mode == .notfound {
             let baseCmd = fullQuery.split(separator: " ").first.map(String.init) ?? fullQuery
 
-            // Check typo first — strongest signal
-            let similar = findSimilarCommands(baseCmd)
-            if !similar.isEmpty {
-                notfoundCategory = "typo"
-                notfoundDetail = similar[0]
-            }
-            // Check if it's a known tool — but only mark as "install" if there's no override
-            // (overrides contain Linux→macOS mappings that the LLM should handle)
-            else if let dbPath {
-                if let source = commandBankSource(dbPath: dbPath, command: baseCmd),
-                   source != "override" {
+            // Check bank/overrides first
+            if let dbPath, let source = commandBankSource(dbPath: dbPath, command: baseCmd) {
+                if source == "override" {
+                    // Has a macOS equivalent — let LLM handle it
+                } else {
+                    // Known tool, not installed
                     notfoundCategory = "install"
                     notfoundDetail = baseCmd
                 }
-                // If it has an override, let the LLM handle it (it'll see the override examples)
+            }
+            // Then check typo (only if not already categorized)
+            else {
+                let similar = findSimilarCommands(baseCmd)
+                if !similar.isEmpty {
+                    notfoundCategory = "typo"
+                    notfoundDetail = similar[0]
+                }
             }
         }
 

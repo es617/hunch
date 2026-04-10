@@ -1,0 +1,30 @@
+{"id": 1, "input": "ncdu", "category": "install", "expected": "brew install ncdu"}
+{"id": 2, "input": "htop", "category": "install", "expected": "brew install htop"}
+{"id": 3, "input": "tree", "category": "install", "expected": "brew install tree"}
+{"id": 4, "input": "nmap", "category": "install", "expected": "brew install nmap"}
+{"id": 5, "input": "tmux", "category": "install", "expected": "brew install tmux"}
+{"id": 6, "input": "jq", "category": "install", "expected": "brew install jq"}
+{"id": 7, "input": "gti", "category": "typo", "expected": "git"}
+{"id": 8, "input": "grpe foo", "category": "typo", "expected": "grep"}
+{"id": 9, "input": "giit status", "category": "typo", "expected": "git"}
+{"id": 10, "input": "cta file.txt", "category": "typo", "expected": "cat"}
+{"id": 11, "input": "mroe file.txt", "category": "typo", "expected": "more"}
+{"id": 12, "input": "pign google.com", "category": "typo", "expected": "ping"}
+{"id": 13, "input": "sssh user@host", "category": "typo", "expected": "ssh"}
+{"id": 14, "input": "curlr https://example.com", "category": "typo", "expected": "curl"}
+{"id": 15, "input": "ip a", "category": "macos", "expected": "ifconfig"}
+{"id": 16, "input": "ip addr", "category": "macos", "expected": "ifconfig"}
+{"id": 17, "input": "ip route", "category": "macos", "expected": "netstat -rn"}
+{"id": 18, "input": "ss -tlnp", "category": "macos", "expected": "lsof -iTCP -sTCP:LISTEN -nP"}
+{"id": 19, "input": "apt install vim", "category": "macos", "expected": "brew install vim"}
+{"id": 20, "input": "apt-get install curl", "category": "macos", "expected": "brew install curl"}
+{"id": 21, "input": "systemctl status nginx", "category": "macos", "expected": "launchctl list | grep nginx"}
+{"id": 22, "input": "free -h", "category": "macos", "expected": "vm_stat"}
+{"id": 23, "input": "lsusb", "category": "macos", "expected": "system_profiler SPUSBDataType"}
+{"id": 24, "input": "xdg-open file.pdf", "category": "macos", "expected": "open file.pdf"}
+{"id": 25, "input": "xclip -selection clipboard", "category": "macos", "expected": "pbcopy"}
+{"id": 26, "input": "md5sum file", "category": "macos", "expected": "md5 file"}
+{"id": 27, "input": "sha256sum file", "category": "macos", "expected": "shasum -a 256 file"}
+{"id": 28, "input": "readlink -f path", "category": "macos", "expected": "realpath path"}
+{"id": 29, "input": "seq 10", "category": "macos", "expected": "jot 10"}
+{"id": 30, "input": "watch -n 5 command", "category": "macos", "expected": "while true; do command; sleep 5; done"}
