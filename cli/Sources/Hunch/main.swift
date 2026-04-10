@@ -148,7 +148,7 @@ struct Hunch {
         }
 
         if args[0] == "--version" || args[0] == "-v" {
-            print("hunch 0.1.2")
+            print("hunch 0.1.3")
             return
         }
 
@@ -196,24 +196,42 @@ struct Hunch {
         if mode == .notfound {
             let baseCmd = fullQuery.split(separator: " ").first.map(String.init) ?? fullQuery
 
-            // 1. Check overrides — these have macOS equivalents
+            // 1. Check overrides — these have macOS equivalents (LLM will handle)
             if let dbPath, let source = commandBankSource(dbPath: dbPath, command: baseCmd),
                source == "override" {
-                // Has a macOS equivalent — let LLM handle it
+                // Let LLM handle it
             }
-            // 2. Check brew for installable packages (authoritative)
-            else if let brewPkg = brewWhichFormula(baseCmd) {
-                notfoundCategory = "install"
-                notfoundDetail = brewPkg
+            // 2. Known tool in bank — skip typo, go to brew for exact package name
+            else if let dbPath, commandExistsInBank(dbPath: dbPath, command: baseCmd) {
+                if let brewPkg = brewWhichFormula(baseCmd) {
+                    notfoundCategory = "install"
+                    notfoundDetail = brewPkg
+                } else {
+                    notfoundCategory = "install"
+                    notfoundDetail = baseCmd
+                }
             }
-            // 3. Check typo (only if brew doesn't know it)
+            // 3. Not in bank — check typo first (instant), then brew (slow)
             else {
                 let similar = findSimilarCommands(baseCmd)
                 if !similar.isEmpty {
                     notfoundCategory = "typo"
                     notfoundDetail = similar[0]
+                } else if let brewPkg = brewWhichFormula(baseCmd) {
+                    notfoundCategory = "install"
+                    notfoundDetail = brewPkg
                 }
             }
+        }
+
+        // Short-circuit: typo and install don't need the LLM
+        if !notfoundCategory.isEmpty {
+            if notfoundCategory == "typo" {
+                print("typo: \(notfoundDetail)")
+            } else if notfoundCategory == "install" {
+                print("install: brew install \(notfoundDetail)")
+            }
+            return
         }
 
         let query = fullQuery
@@ -293,16 +311,9 @@ struct Hunch {
                         command = recheck.valid ? retryCmd : command
                     }
 
-                    // For notfound: prefix output with category if we determined one
                     if mode == .notfound {
-                        if notfoundCategory == "typo" {
-                            print("typo: \(notfoundDetail)")
-                        } else if notfoundCategory == "install" {
-                            print("install: brew install \(notfoundDetail)")
-                        } else {
-                            // LLM gave us the macOS equivalent
-                            print("macos: \(command)")
-                        }
+                        // Only macOS equivalent path reaches here
+                        print("macos: \(command)")
                     } else {
                         print(command)
                     }
