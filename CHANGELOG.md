@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- Three-tier retrieval: override → tldr-osx → tldr-common. Curated macOS examples now always appear first, reducing noise from 21k cross-platform entries
+- Command validation: retries when the model hallucinates a command that doesn't exist locally or in the tldr bank
+- Smarter command-not-found handler with three categories:
+  - Typo detection via Damerau-Levenshtein (`grpe` → `did you mean: grep`)
+  - Install suggestions via `brew which-formula` (`ncdu` → `not installed: brew install ncdu`)
+  - Linux→macOS equivalents via LLM (`ip a` → `macOS equivalent: ifconfig`)
+- Notfound benchmark: 30 prompts, 97% category accuracy
+- Suggest benchmark: **~83%** (up from ~78% in v0.1.2)
+
 ## 0.1.2
 
 - Improved system prompt: model now prefers retrieved examples over pretraining guesses

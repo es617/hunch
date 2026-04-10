@@ -24,6 +24,6 @@ class Hunch < Formula
   end
 
   test do
-    assert_match "hunch 0.1.2", shell_output("#{bin}/hunch --version")
+    assert_match "hunch 0.2.0", shell_output("#{bin}/hunch --version")
   end
 end

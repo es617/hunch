@@ -23,7 +23,7 @@ Apple shipped a 3B language model on every Mac running Tahoe. It runs on the Neu
 
 hunch fixes this with a technique from the GPT-3 era: dynamic few-shot retrieval. Before asking the model to generate a command, it searches a bank of 21,000 correct command examples (sourced from the community-maintained [tldr pages](https://github.com/tldr-pages/tldr)) and injects the 8 most similar examples into the prompt. The model copies the right patterns instead of guessing.
 
-On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to **~78%** — without leaving the device. Accuracy scales with the bank: more examples = better results.
+On a 100-prompt benchmark, this takes accuracy from 40% (bare model) to **~83%** — without leaving the device. Accuracy scales with the bank: more examples = better results.
 
 ## Who it's for
 
@@ -68,7 +68,7 @@ Three zsh hooks, each targeting a different moment in the command lifecycle:
 | Hook | Trigger | What happens |
 |------|---------|-------------|
 | **Ctrl+G** | You hit the keybind | Natural language in the buffer is replaced with the actual command. You inspect before running. |
-| **Typo** | Command not found | `ip a` → `did you mean: ifconfig`. Searches the bank for macOS equivalents. |
+| **Not found** | Command not found | Typos (`gti` → `did you mean: git`), installable tools (`ncdu` → `not installed: brew install ncdu`), Linux→macOS (`ip a` → `macOS equivalent: ifconfig`). |
 | **Failure** | Non-zero exit | One-line explanation of what went wrong, in dim grey. |
 
 ### CLI usage
@@ -131,14 +131,15 @@ The key insight: the 3B model is a pattern-copier, not a reasoner. Feeding it do
 
 | Mode | Accuracy | Avg Time | Notes |
 |------|----------|----------|-------|
-| **hunch (shipped)** | **~78%** | 0.5s | FTS5 retrieval + overrides + tuned prompt |
+| **hunch (shipped)** | **~83%** | 0.5s | Three-tier retrieval + overrides + validation + tuned prompt |
+| hunch v0.1.2 | ~78% | 0.5s | FTS5 retrieval + overrides + tuned prompt |
 | hunch (retrieval only) | ~72% | 0.5s | Before adding targeted overrides |
 | Bare prompt (no DB) | 41% | 0.4s | What the model knows from training alone |
 | Static few-shot | 43% | 1.1s | 8 hand-picked examples |
 | Man page index | 37% | 1.5s | Flag descriptions from man pages |
 | Self-critique | 33% | 0.7s | Generate then verify — made things worse |
 
-The example bank is the main driver of accuracy (+37pp over bare prompt). The shipped bank includes targeted overrides for common patterns where the base tldr pages had gaps (e.g., `find -size`, `curl -I`, `grep --include`). These overrides were developed by analyzing benchmark failures, so the 78% figure reflects the shipped product rather than an independent test. The 72% retrieval-only number was measured before adding those overrides.
+The example bank is the main driver of accuracy (+42pp over bare prompt). v0.1.3 adds three-tier retrieval (overrides → macOS-specific → common), which prioritizes curated examples over the 21k tldr entries. A lightweight command validation retries hallucinated commands that don't exist locally or in the tldr bank. The shipped bank includes targeted overrides for common patterns where the base tldr pages had gaps (e.g., `find -size`, `curl -I`, `grep --include`). These overrides were developed by analyzing benchmark failures, so the 83% figure reflects the shipped product rather than an independent test. The 72% retrieval-only number was measured before adding those overrides.
 
 You can add your own overrides in `bank/macos_overrides.tsv` and rebuild with `make update-bank`. PRs welcome. See `benchmark/APPROACHES.md` for the full breakdown of all approaches tested.
 
