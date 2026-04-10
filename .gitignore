@@ -16,3 +16,6 @@ __pycache__/
 *.tar.gz
 CLAUDE.md
 benchmark/GUIDED_GENERATION.md
+training/train.jsonl
+training/eval.jsonl
+training/adapter_training_toolkit*
