@@ -1,8 +1,8 @@
 class Hunch < Formula
   desc "On-device shell command generator using Apple's 3B model with tldr-based few-shot retrieval"
   homepage "https://github.com/es617/hunch"
-  url "https://github.com/es617/hunch/releases/download/v0.1.2/hunch-0.1.2-arm64-macos.tar.gz"
-  sha256 "41c60665d452764e0c558e8707016f23b92f592a1bf0201017566781dda98be6"
+  url "https://github.com/es617/hunch/releases/download/v0.2.0/hunch-0.2.0-arm64-macos.tar.gz"
+  sha256 "74ec56533ef8a812808c5d098ff9aa6156861b43d3473a74f9484bf38a261ab5"
   license "MIT"
 
   depends_on :macos
