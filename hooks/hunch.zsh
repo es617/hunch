@@ -45,13 +45,20 @@ command_not_found_handler() {
   # Prevent infinite recursion if hunch is not in PATH
   (( $+commands[hunch] )) || { echo "zsh: command not found: $1"; return 127; }
 
-  local guess
-  guess=$(hunch --notfound "$*" 2>/dev/null)
+  local result
+  result=$(hunch --notfound "$*" 2>/dev/null)
 
-  if [[ -n "$guess" ]]; then
-    print -P "%F{8}did you mean:%f $guess"
-  else
+  if [[ -z "$result" ]]; then
     echo "zsh: command not found: $1"
+  elif [[ "$result" == install:* ]]; then
+    print -P "%F{8}not installed:%f ${result#install: }"
+  elif [[ "$result" == typo:* ]]; then
+    print -P "%F{8}did you mean:%f ${result#typo: }"
+  elif [[ "$result" == macos:* ]]; then
+    print -P "%F{8}macOS equivalent:%f ${result#macos: }"
+  else
+    # Fallback: model didn't follow format
+    print -P "%F{8}did you mean:%f $result"
   fi
   return 127
 }

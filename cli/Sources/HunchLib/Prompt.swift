@@ -21,7 +21,7 @@ public func buildSystemPrompt(mode: Mode, examples: [BankResult]) -> String {
     case .notfound:
         var prompt = "This command was not found on macOS. If it is a typo, output the corrected command. If it is a Linux command, output the macOS equivalent. Just the command, no markdown, no backticks."
         if !examples.isEmpty {
-            prompt += "\n\nExamples:"
+            prompt += "\n\nUse these reference examples to answer — prefer commands shown here:"
             for ex in examples {
                 prompt += "\nQ: \(ex.question)\nA: \(ex.answer)"
             }

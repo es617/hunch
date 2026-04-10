@@ -171,6 +171,31 @@ struct Hunch {
             }
         }
 
+        // For notfound mode: determine the category (typo, installable, or Linux→macOS)
+        var notfoundCategory = ""  // "typo", "install", or "" (let LLM decide)
+        var notfoundDetail = ""
+        if mode == .notfound {
+            let baseCmd = fullQuery.split(separator: " ").first.map(String.init) ?? fullQuery
+
+            // Check typo first — strongest signal
+            let similar = findSimilarCommands(baseCmd)
+            if !similar.isEmpty {
+                notfoundCategory = "typo"
+                notfoundDetail = similar[0]
+            }
+            // Check if it's a known tool — but only mark as "install" if there's no override
+            // (overrides contain Linux→macOS mappings that the LLM should handle)
+            else if let dbPath {
+                if let source = commandBankSource(dbPath: dbPath, command: baseCmd),
+                   source != "override" {
+                    notfoundCategory = "install"
+                    notfoundDetail = baseCmd
+                }
+                // If it has an override, let the LLM handle it (it'll see the override examples)
+            }
+        }
+
+        let query = fullQuery
         let systemPrompt = buildSystemPrompt(mode: mode, examples: examples)
 
         do {
@@ -207,9 +232,9 @@ struct Hunch {
             if mode == .explain {
                 let response: LanguageModelSession.Response<String>
                 if let opts = genOptions {
-                    response = try await session.respond(to: fullQuery, options: opts)
+                    response = try await session.respond(to: query, options: opts)
                 } else {
-                    response = try await session.respond(to: fullQuery)
+                    response = try await session.respond(to: query)
                 }
                 print(response.content)
             } else if guided == nil {
@@ -218,14 +243,14 @@ struct Hunch {
                     var command: String
                     let response: LanguageModelSession.Response<String>
                     if let opts = genOptions {
-                        response = try await session.respond(to: fullQuery, options: opts)
+                        response = try await session.respond(to: query, options: opts)
                     } else {
-                        response = try await session.respond(to: fullQuery)
+                        response = try await session.respond(to: query)
                     }
                     command = stripMarkdown(response.content)
 
                     // Validate and retry once if invalid
-                    let check = validateCommand(command, dbPath: dbPath)
+                    let check = mode == .suggest ? validateCommand(command, dbPath: dbPath) : (valid: true, error: nil as String?)
                     if !check.valid, let error = check.error {
                         if ProcessInfo.processInfo.environment["HUNCH_DEBUG"] != nil {
                             fputs("validation failed: \(error) — retrying\n", stderr)
@@ -247,16 +272,28 @@ struct Hunch {
                         command = recheck.valid ? retryCmd : command
                     }
 
-                    print(command)
+                    // For notfound: prefix output with category if we determined one
+                    if mode == .notfound {
+                        if notfoundCategory == "typo" {
+                            print("typo: \(notfoundDetail)")
+                        } else if notfoundCategory == "install" {
+                            print("install: brew install \(notfoundDetail)")
+                        } else {
+                            // LLM gave us the macOS equivalent
+                            print("macos: \(command)")
+                        }
+                    } else {
+                        print(command)
+                    }
                 } else {
                     var results: [String] = []
                     for _ in 0..<samples {
                         let s = LanguageModelSession(model: model, transcript: session.transcript)
                         let response: LanguageModelSession.Response<String>
                         if let opts = genOptions {
-                            response = try await s.respond(to: fullQuery, options: opts)
+                            response = try await s.respond(to: query, options: opts)
                         } else {
-                            response = try await s.respond(to: fullQuery)
+                            response = try await s.respond(to: query)
                         }
                         results.append(stripMarkdown(response.content))
                     }
@@ -266,18 +303,18 @@ struct Hunch {
                 // Guided: single command struct
                 let response: LanguageModelSession.Response<ShellCommand>
                 if let opts = genOptions {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommand.self, options: opts)
+                    response = try await session.respond(to: query, generating: ShellCommand.self, options: opts)
                 } else {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommand.self)
+                    response = try await session.respond(to: query, generating: ShellCommand.self)
                 }
                 print(response.content.command)
             } else if guided == "cot" {
                 // Guided: chain of thought + command
                 let response: LanguageModelSession.Response<ShellCommandCoT>
                 if let opts = genOptions {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoT.self, options: opts)
+                    response = try await session.respond(to: query, generating: ShellCommandCoT.self, options: opts)
                 } else {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoT.self)
+                    response = try await session.respond(to: query, generating: ShellCommandCoT.self)
                 }
                 if ProcessInfo.processInfo.environment["HUNCH_DEBUG"] != nil {
                     fputs("reasoning: \(response.content.reasoning)\n", stderr)
@@ -287,18 +324,18 @@ struct Hunch {
                 // Guided: 3 candidates, majority vote
                 let response: LanguageModelSession.Response<ShellCommandMulti>
                 if let opts = genOptions {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandMulti.self, options: opts)
+                    response = try await session.respond(to: query, generating: ShellCommandMulti.self, options: opts)
                 } else {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandMulti.self)
+                    response = try await session.respond(to: query, generating: ShellCommandMulti.self)
                 }
                 print(majorityVote([response.content.first, response.content.second, response.content.third]))
             } else if guided == "cotmulti" {
                 // Guided: chain of thought + 3 candidates, majority vote
                 let response: LanguageModelSession.Response<ShellCommandCoTMulti>
                 if let opts = genOptions {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoTMulti.self, options: opts)
+                    response = try await session.respond(to: query, generating: ShellCommandCoTMulti.self, options: opts)
                 } else {
-                    response = try await session.respond(to: fullQuery, generating: ShellCommandCoTMulti.self)
+                    response = try await session.respond(to: query, generating: ShellCommandCoTMulti.self)
                 }
                 print(majorityVote([response.content.first, response.content.second, response.content.third]))
             } else {

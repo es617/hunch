@@ -107,6 +107,75 @@ public func commandExistsInBank(dbPath: String, command: String) -> Bool {
     return sqlite3_step(stmt) == SQLITE_ROW
 }
 
+/// Damerau-Levenshtein distance (counts transpositions as 1 edit).
+public func levenshtein(_ a: String, _ b: String) -> Int {
+    let s = Array(a), t = Array(b)
+    let m = s.count, n = t.count
+    if m == 0 { return n }
+    if n == 0 { return m }
+    var dp = Array(repeating: Array(repeating: 0, count: n + 1), count: m + 1)
+    for i in 0...m { dp[i][0] = i }
+    for j in 0...n { dp[0][j] = j }
+    for i in 1...m {
+        for j in 1...n {
+            let cost = s[i-1] == t[j-1] ? 0 : 1
+            dp[i][j] = min(dp[i-1][j] + 1, dp[i][j-1] + 1, dp[i-1][j-1] + cost)
+            if i > 1 && j > 1 && s[i-1] == t[j-2] && s[i-2] == t[j-1] {
+                dp[i][j] = min(dp[i][j], dp[i-2][j-2] + cost)
+            }
+        }
+    }
+    return dp[m][n]
+}
+
+/// Find installed commands similar to the given one.
+/// Uses edit distance 1 for short commands (≤4 chars), 2 for longer ones.
+public func findSimilarCommands(_ command: String) -> [String] {
+    let searchPaths = ["/usr/bin", "/usr/sbin", "/bin", "/sbin",
+                       "/opt/homebrew/bin", "/usr/local/bin"]
+    guard command.count >= 3 else { return [] }
+    let maxDist = command.count <= 4 ? 1 : 2
+    var candidates: [(String, Int)] = []
+
+    for dir in searchPaths {
+        guard let entries = try? FileManager.default.contentsOfDirectory(atPath: dir) else { continue }
+        for entry in entries {
+            let dist = levenshtein(command.lowercased(), entry.lowercased())
+            if dist > 0 && dist <= maxDist {
+                candidates.append((entry, dist))
+            }
+        }
+    }
+
+    return candidates
+        .sorted { $0.1 < $1.1 }
+        .prefix(3)
+        .map(\.0)
+}
+
+/// Check what source a command comes from in the bank (override, tldr-osx, tldr-common, or nil).
+public func commandBankSource(dbPath: String, command: String) -> String? {
+    var db: OpaquePointer?
+    guard sqlite3_open_v2(dbPath, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else {
+        return nil
+    }
+    defer { sqlite3_close(db) }
+
+    let sql = "SELECT source FROM bank WHERE cmd = ? LIMIT 1"
+    var stmt: OpaquePointer?
+    guard sqlite3_prepare_v2(db, sql, -1, &stmt, nil) == SQLITE_OK else {
+        return nil
+    }
+    defer { sqlite3_finalize(stmt) }
+
+    let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
+    sqlite3_bind_text(stmt, 1, command, -1, SQLITE_TRANSIENT)
+    if sqlite3_step(stmt) == SQLITE_ROW, let ptr = sqlite3_column_text(stmt, 0) {
+        return String(cString: ptr)
+    }
+    return nil
+}
+
 /// Search bank by command name (for notfound mode).
 /// Looks up examples for the command the user tried to run.
 public func searchBankByCommand(dbPath: String, command: String, limit: Int = 8) -> [BankResult] {
