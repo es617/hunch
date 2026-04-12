@@ -19,3 +19,4 @@ benchmark/GUIDED_GENERATION.md
 training/train.jsonl
 training/eval.jsonl
 training/adapter_training_toolkit*
+training/README.md
