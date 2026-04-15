@@ -504,6 +504,53 @@ def approach_hunch_multi_warm(prompt):
     return _run_hunch(prompt, ["--guided", "multi", "--temperature", "0.3"])
 
 
+ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "exports" / "hunch.fmadapter")
+QLORA_FP16_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_fp16.fmadapter")
+QLORA_NF4_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora.fmadapter")
+QLORA_OVERRIDE_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_overrides.fmadapter")
+LORA_OVERRIDE_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "exports" / "hunch_overrides.fmadapter")
+
+
+def approach_adapter_only(prompt):
+    """LoRA adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", ADAPTER_PATH, "--limit", "0"])
+
+
+def approach_adapter_retrieval(prompt):
+    """LoRA adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", ADAPTER_PATH])
+
+
+def approach_fp16lora_only(prompt):
+    """fp16 LoRA adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_FP16_ADAPTER_PATH, "--limit", "0"])
+
+
+def approach_fp16lora_retrieval(prompt):
+    """fp16 LoRA adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_FP16_ADAPTER_PATH])
+
+
+def approach_qlora_only(prompt):
+    """True QLoRA (NF4) adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_NF4_ADAPTER_PATH, "--limit", "0"])
+
+
+def approach_qlora_retrieval(prompt):
+    """True QLoRA (NF4) adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_NF4_ADAPTER_PATH])
+
+
+def approach_qlora_override_only(prompt):
+    """QLoRA trained on overrides only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"])
+
+
+def approach_qlora_override_retrieval(prompt):
+    """QLoRA trained on overrides only + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH])
+
+
 def approach_dynshot_tldr(prompt):
     """Dynamic few-shot using tldr+overrides FTS5 index (21k entries)."""
     import sqlite3
@@ -576,6 +623,16 @@ APPROACHES = {
     "hunch-multi": approach_hunch_multi,
     "hunch-cotmulti": approach_hunch_cotmulti,
     "hunch-multi-warm": approach_hunch_multi_warm,
+    "adapter-only": approach_adapter_only,
+    "adapter-retrieval": approach_adapter_retrieval,
+    "fp16lora-only": approach_fp16lora_only,
+    "fp16lora-retrieval": approach_fp16lora_retrieval,
+    "qlora-only": approach_qlora_only,
+    "qlora-retrieval": approach_qlora_retrieval,
+    "qlora-override-only": approach_qlora_override_only,
+    "qlora-override-retrieval": approach_qlora_override_retrieval,
+    "lora-override-only": lambda p: _run_hunch(p, ["--adapter", LORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"]),
+    "lora-override-retrieval": lambda p: _run_hunch(p, ["--adapter", LORA_OVERRIDE_ADAPTER_PATH]),
     "hunch-sc": approach_hunch_sc,
     "sc-dynshot": approach_selfconsist_dynshot,
     "sc-warm": approach_selfconsist_warm,

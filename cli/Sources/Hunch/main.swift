@@ -158,6 +158,7 @@ struct Hunch {
         let samples = parseFlag(&args, flag: "--samples").flatMap(Int.init) ?? 1
         let limit = parseFlag(&args, flag: "--limit").flatMap(Int.init) ?? 8
         let guided = parseFlag(&args, flag: "--guided")
+        let adapterPath = parseFlag(&args, flag: "--adapter")
 
         // Parse mode
         var mode: Mode = .suggest
@@ -238,9 +239,19 @@ struct Hunch {
         let systemPrompt = buildSystemPrompt(mode: mode, examples: examples)
 
         do {
-            let model = SystemLanguageModel(
-                guardrails: .permissiveContentTransformations
-            )
+            let model: SystemLanguageModel
+            if let adapterPath {
+                let adapterURL = URL(fileURLWithPath: adapterPath)
+                let adapter = try SystemLanguageModel.Adapter(fileURL: adapterURL)
+                model = SystemLanguageModel(
+                    adapter: adapter,
+                    guardrails: .permissiveContentTransformations
+                )
+            } else {
+                model = SystemLanguageModel(
+                    guardrails: .permissiveContentTransformations
+                )
+            }
 
             // Build generation options only when temperature is set
             let genOptions: GenerationOptions? = temperature.map {

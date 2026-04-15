@@ -55,10 +55,29 @@ def to_training_example(entry):
     ]
 
 
-def prepare_dataset(eval_split=0.1, exclude_benchmark=True, seed=42):
-    """Prepare train/eval splits from the bank."""
+def prepare_dataset(eval_split=0.1, exclude_benchmark=True, seed=42, sources=None):
+    """Prepare train/eval splits from the bank.
+
+    Args:
+        sources: filter by source. Options:
+            None or "all" — everything (default)
+            "override" — overrides only (~130 examples)
+            "macos" — overrides + tldr-osx (~1k examples)
+            "override,tldr-osx" — comma-separated list
+    """
     bank = load_bank()
     print(f"Loaded {len(bank)} entries from bank")
+
+    # Filter by source if specified
+    if sources and sources != "all":
+        allowed = set(s.strip() for s in sources.split(","))
+        # "macos" is a shorthand for override + tldr-osx
+        if "macos" in allowed:
+            allowed.discard("macos")
+            allowed.update(["override", "tldr-osx"])
+        before = len(bank)
+        bank = [e for e in bank if e["source"] in allowed]
+        print(f"Filtered to sources {allowed}: {len(bank)} entries (from {before})")
 
     # Count by source
     by_source = {}
@@ -86,28 +105,22 @@ def prepare_dataset(eval_split=0.1, exclude_benchmark=True, seed=42):
     print(f"After dedup: {len(unique)} unique entries (removed {len(bank) - len(unique)})")
     bank = unique
 
-    # Prioritize overrides and osx entries by including them in both train and eval
-    overrides = [e for e in bank if e["source"] in ("override", "tldr-osx")]
-    common = [e for e in bank if e["source"] not in ("override", "tldr-osx")]
-
-    # Split common entries
+    # Split into train/eval
     random.seed(seed)
-    random.shuffle(common)
-    eval_size = int(len(common) * eval_split)
-    eval_common = common[:eval_size]
-    train_common = common[eval_size:]
+    random.shuffle(bank)
+    eval_size = max(int(len(bank) * eval_split), 1)
+    eval_data = bank[:eval_size]
+    train = bank[eval_size:]
 
-    # Overrides go in both train and eval
-    train = overrides + train_common
-    eval_data = overrides + eval_common
-
-    random.shuffle(train)
-    random.shuffle(eval_data)
-
-    print(f"\nDataset split:")
-    print(f"  Train: {len(train)} examples")
-    print(f"  Eval:  {len(eval_data)} examples")
-    print(f"  Override/osx entries in both: {len(overrides)}")
+    # For small datasets, put everything in both
+    if len(bank) < 500:
+        train = bank
+        eval_data = bank
+        print(f"Small dataset — using all {len(bank)} examples for both train and eval")
+    else:
+        print(f"\nDataset split:")
+        print(f"  Train: {len(train)} examples")
+        print(f"  Eval:  {len(eval_data)} examples")
 
     return train, eval_data
 
@@ -151,11 +164,13 @@ def main():
     parser.add_argument("--eval-split", type=float, default=0.1)
     parser.add_argument("--stats", action="store_true")
     parser.add_argument("--no-exclude-benchmark", action="store_true")
+    parser.add_argument("--sources", default=None, help="Filter sources: override, macos, tldr-osx, tldr-common, or all")
     args = parser.parse_args()
 
     train, eval_data = prepare_dataset(
         eval_split=args.eval_split,
         exclude_benchmark=not args.no_exclude_benchmark,
+        sources=args.sources,
     )
 
     if args.stats:

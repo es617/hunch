@@ -171,6 +171,16 @@ make install
 
 This clones [tldr-pages](https://github.com/tldr-pages/tldr), parses all entries into Q/A pairs, adds macOS-specific overrides, and rebuilds the FTS5 index.
 
+## LoRA Adapter Training (experimental)
+
+The `training/` directory contains infrastructure for fine-tuning Apple's on-device 3B model using LoRA adapters. This is an exploration of whether fine-tuning can complement or replace the retrieval approach — see `training/README.md` for full details, results, and notebooks.
+
+```bash
+hunch --adapter path/to/hunch.fmadapter "find files changed in the last hour"
+```
+
+Current finding: retrieval alone (~83%) still outperforms adapter-based approaches, but the training pipeline and QLoRA patches (enabling training on free Colab T4 GPUs) may be useful to others exploring Apple's adapter toolkit.
+
 ## Known limitations
 
 - **4K token context window** — the system prompt + 8 examples + query + output must fit. Current prompts use ~200-400 tokens, well within budget.
