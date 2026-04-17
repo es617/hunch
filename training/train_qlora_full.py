@@ -134,7 +134,7 @@ def load_model_qlora(device):
     # Move to device
     model = model.to(device)
 
-    # Ensure adapter params are fp32
+    # Keep adapters in fp32 for stable training with gradient scaling
     for name, param in model.named_parameters():
         if param.requires_grad and param.dtype != torch.float32:
             param.data = param.data.float()
@@ -270,15 +270,9 @@ def evaluate(model, dataloader, device):
 
 
 def save_adapter_checkpoint(model, path, optimizer=None, epoch=None):
-    """Save adapter weights and optionally optimizer state for resume."""
-    checkpoint = {
-        "adapter_weights": {k: v.cpu() for k, v in model.state_dict().items() if "adapter" in k},
-    }
-    if optimizer:
-        checkpoint["optimizer"] = optimizer.state_dict()
-    if epoch is not None:
-        checkpoint["epoch"] = epoch
-    torch.save(checkpoint, path)
+    """Save adapter weights as flat state dict (compatible with export_fmadapter)."""
+    adapter_sd = {k: v.cpu() for k, v in model.state_dict().items() if "adapter" in k}
+    torch.save(adapter_sd, path)
     size_mb = os.path.getsize(path) / 1024**2
     print(f"Saved checkpoint ({size_mb:.0f}MB) to {path}")
 
@@ -338,8 +332,8 @@ def main():
         weight_decay=0.01
     )
 
-    # Gradient scaler for mixed precision on CUDA
-    scaler = torch.amp.GradScaler() if torch.cuda.is_available() else None
+    # Gradient scaler for mixed precision
+    scaler = torch.amp.GradScaler(device=str(device)) if (torch.cuda.is_available() or torch.backends.mps.is_available()) else None
 
     # Checkpoint dir
     os.makedirs(args.checkpoint_dir, exist_ok=True)

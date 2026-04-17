@@ -111,7 +111,8 @@
     "wc -l **/*.py",
     "find . -name '*.py' -exec wc -l {} \\;",
     "find . -name \"*.py\" -exec wc -l {} +",
-    "find . -name \"*.py\" | xargs wc -l"
+    "find . -name \"*.py\" | xargs wc -l",
+    "wc -l *.py"
   ],
   "22": [
     "du -sh * | sort -hr",
@@ -154,7 +155,8 @@
     "tar -czf folder.tar.gz folder",
     "tar -czvf folder.tar.gz folder",
     "tar -czf path/to/compressed.tar.gz path/to/folder",
-    "tar -czvf /path/to/output.tar.gz /path/to/folder"
+    "tar -czvf /path/to/output.tar.gz /path/to/folder",
+    "tar -czf file.tar.gz ."
   ],
   "28": [
     "tar xzf file.tar.gz",
@@ -191,14 +193,16 @@
   "33": [
     "git log origin/main..HEAD",
     "git log origin/master..HEAD",
-    "git log --oneline origin/main..HEAD"
+    "git log --oneline origin/main..HEAD",
+    "git log origin/main..HEAD --oneline"
   ],
   "34": [
     "git branch -m old new",
     "git branch -m oldname newname",
     "git branch -m <branch_name> <new_branch_name>",
     "git branch -m old_branch_name new_branch_name",
-    "git branch -m new_branch_name"
+    "git branch -m new_branch_name",
+    "git branch -m branch_name1 branch_name2"
   ],
   "35": [
     "git branch --merged | grep -v main | xargs git branch -d",
@@ -255,7 +259,9 @@
   ],
   "42": [
     "tail -n 50 file",
-    "tail -50 file"
+    "tail -50 file",
+    "tail -50 filename",
+    "tail -n 50 filename"
   ],
   "43": [
     "ls | wc -l",
@@ -291,7 +297,9 @@
     "mkdir -p \"path/to/directory\"",
     "mkdir -p parent_directory_path",
     "mkdir -p /path/to/directory",
-    "mkdir -p path/to/directory"
+    "mkdir -p path/to/directory",
+    "mkdir -p directory",
+    "mkdir -p directory_name"
   ],
   "49": [
     "chmod +x file",
@@ -480,13 +488,15 @@
     "git cherry-pick commit",
     "git cherry-pick <commit-hash>",
     "git cherry-pick HEAD~1",
-    "git cherry-pick HEAD^"
+    "git cherry-pick HEAD^",
+    "git cherry-pick commit-hash"
   ],
   "85": [
     "ls -lh file",
     "ls -lh",
     "du -sh file",
-    "du -h file"
+    "du -h file",
+    "du -hs filename"
   ],
   "86": [
     "find . -perm 777",
@@ -547,7 +557,8 @@
     "zip -r file.zip .",
     "zip -r file.zip ./",
     "zip -r mydir.zip ./mydir",
-    "zip -r myfile.zip mydir"
+    "zip -r myfile.zip mydir",
+    "zip -r archive.zip directory_to_zip"
   ],
   "94": [
     "unzip file.zip -d directory",

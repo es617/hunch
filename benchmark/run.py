@@ -618,6 +618,21 @@ def approach_qlora_override_retrieval(prompt):
 approach_qlora_override_retrieval._batch_args = ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH]
 
 
+QLORA_MPS_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_mps.fmadapter")
+
+
+def approach_qlora_mps_only(prompt):
+    """QLoRA trained on Mac (MPS), no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_MPS_ADAPTER_PATH, "--limit", "0"])
+approach_qlora_mps_only._batch_args = ["--adapter", QLORA_MPS_ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_qlora_mps_retrieval(prompt):
+    """QLoRA trained on Mac (MPS) + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_MPS_ADAPTER_PATH])
+approach_qlora_mps_retrieval._batch_args = ["--adapter", QLORA_MPS_ADAPTER_PATH]
+
+
 def approach_dynshot_tldr(prompt):
     """Dynamic few-shot using tldr+overrides FTS5 index (21k entries)."""
     import sqlite3
@@ -698,6 +713,8 @@ APPROACHES = {
     "qlora-retrieval": approach_qlora_retrieval,
     "qlora-override-only": approach_qlora_override_only,
     "qlora-override-retrieval": approach_qlora_override_retrieval,
+    "qlora-mps-only": approach_qlora_mps_only,
+    "qlora-mps-retrieval": approach_qlora_mps_retrieval,
     "lora-override-only": _make_batch_approach(["--adapter", LORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"]),
     "lora-override-retrieval": _make_batch_approach(["--adapter", LORA_OVERRIDE_ADAPTER_PATH]),
     "hunch-sc": approach_hunch_sc,
