@@ -60,7 +60,9 @@ cd ..
 python3 prepare_data.py --sources override
 python3 train_qlora_full.py --epochs 20 --batch-size 8
 
-# Export (needs separate Python 3.12 env — coremltools doesn't support PyTorch 2.11)
+# Export — bitsandbytes from main pulls in PyTorch 2.11, but coremltools 8.3.0
+# ships native C extensions only for Python ≤3.13 and PyTorch ≤2.5.
+# Create a separate env with compatible versions:
 cd adapter_training_toolkit_v26_0_0
 python3.12 -m venv export-env
 source export-env/bin/activate
@@ -75,7 +77,7 @@ Notes:
 - Requires bitsandbytes from git main (pre-v0.50.0) with native MPS kernels (PR #1875)
 - The `kernels` package downloads pre-compiled Metal shaders from HuggingFace Hub at runtime
 - Don't use `bnb_4bit_use_double_quant=True` — not wired for MPS yet
-- ~34 min for 20 epochs on M3/M4, 3.4GB GPU, 0.2GB RAM
+- ~34 min for 20 epochs of 96 examples on M4, 3.4GB GPU, 0.2GB RAM. Full bank (~19k) would take hours
 
 ### Path B: Train on Colab
 
@@ -203,7 +205,7 @@ python3 -m export.export_fmadapter \
 
 **Note for Mac training:** The training venv has PyTorch 2.11 (from bitsandbytes main) which is too new for coremltools. Export in a separate Python 3.12 environment — see Path A in Quick Start above.
 
-Output is ~127MB. The adapter name can only contain letters, numbers, and underscores.
+Output is ~130MB. The adapter name can only contain letters, numbers, and underscores.
 
 **Do not modify the export code** — the `.fmadapter` format must match exactly for on-device compatibility.
 
