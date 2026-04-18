@@ -41,7 +41,7 @@ training/adapter_training_toolkit_v26_0_0/
 | **QLoRA on Mac** | Apple Silicon | **Free, local** | **3.4GB** | **~34 min** | ~hours |
 | QLoRA on Colab | T4 16GB | Free | ~5GB | ~5 min | ~1.7 hours |
 | fp16 LoRA on Colab | T4 16GB | Free | ~8.5GB | ~10 min | ~2 hours |
-| LoRA on Colab | A100 40GB | Colab Pro ($10/mo) | ~15GB | ~5 min | ~1.5 hours |
+| LoRA on Colab | A100 40GB | Colab Pro ($10/mo) | ~15GB | ~5 min | ~2.5 hours |
 
 **QLoRA is recommended.** Same adapter quality as full LoRA, lowest memory, fewest patches. Mac training is ~7x slower than T4 but fully local.
 

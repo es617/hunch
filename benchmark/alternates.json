@@ -156,7 +156,8 @@
     "tar -czvf folder.tar.gz folder",
     "tar -czf path/to/compressed.tar.gz path/to/folder",
     "tar -czvf /path/to/output.tar.gz /path/to/folder",
-    "tar -czf file.tar.gz ."
+    "tar -czf file.tar.gz .",
+    "tar -czf archive.tar.gz folder"
   ],
   "28": [
     "tar xzf file.tar.gz",
@@ -171,7 +172,8 @@
     "tar -xvzf filename.tar.gz",
     "tar -xzvf file.tar.gz",
     "tar -zxvf archive.tar.gz",
-    "tar -zxvf file.tar.gz"
+    "tar -zxvf file.tar.gz",
+    "tar -xvf file.tar.gz"
   ],
   "29": [
     "git branch --sort=-committerdate",
@@ -228,7 +230,8 @@
     "curl -O https://example.com/file.txt",
     "curl -O https://example.com/file.zip",
     "curl -o file.zip https://example.com/file.zip",
-    "wget https://example.com/file.pdf"
+    "wget https://example.com/file.pdf",
+    "wget https://example.com/file.zip -O file.zip"
   ],
   "39": [
     "curl -I https://example.com",
@@ -389,7 +392,8 @@
   "65": [
     "caffeinate",
     "caffeinate -d",
-    "caffeinate -t 3600"
+    "caffeinate -t 3600",
+    "caffeinate -t 86400"
   ],
   "66": [
     "say hello",
@@ -520,7 +524,9 @@
     "ssh user@hostname -i path/to/key_file.pem",
     "ssh user@server -i path/to/key.pem",
     "ssh user@server -i path/to/key_file.pem",
-    "ssh user@server.example.com -i ~/.ssh/id_rsa"
+    "ssh user@server.example.com -i ~/.ssh/id_rsa",
+    "ssh user@host -i path/to/key",
+    "ssh user@host -i path/to/key_file.pem"
   ],
   "89": [
     "rsync -avz src/ user@host:dst/",
@@ -530,7 +536,9 @@
     "rsync -avz source_directory remote_server",
     "rsync -avz . remote_server:destination_directory",
     "rsync -avz --progress source_directory remote_server",
-    "rsync -avz --progress src_dir remote_server"
+    "rsync -avz --progress src_dir remote_server",
+    "rsync -avz /path/to/local/directory remote_server:destination_directory",
+    "rsync -avz /path/to/local/directory remote_server:path/to/remote/directory"
   ],
   "90": [
     "crontab -l"
@@ -539,7 +547,8 @@
     "grep -ri pattern .",
     "grep -ri 'pattern' .",
     "grep -rni pattern .",
-    "find . -type f -exec grep -ri 'pattern' {} +"
+    "find . -type f -exec grep -ri 'pattern' {} +",
+    "find . -type f -exec grep -ri 'pattern' +"
   ],
   "92": [
     "wc file",
@@ -558,7 +567,8 @@
     "zip -r file.zip ./",
     "zip -r mydir.zip ./mydir",
     "zip -r myfile.zip mydir",
-    "zip -r archive.zip directory_to_zip"
+    "zip -r archive.zip directory_to_zip",
+    "zip -r file.zip directory"
   ],
   "94": [
     "unzip file.zip -d directory",
@@ -574,7 +584,8 @@
     "unzip file.zip -d /path/to/unzip",
     "unzip file.zip -d destination",
     "unzip file.zip -d destination_directory",
-    "unzip file.zip -d /path/to/unzipped"
+    "unzip file.zip -d /path/to/unzipped",
+    "unzip file.zip -d destination/"
   ],
   "95": [
     "system_profiler SPHardwareDataType"

@@ -116,7 +116,7 @@ def load_model_qlora(device):
         )
         new_module.weight = bnb.nn.Params4bit(
             module.weight.data, requires_grad=False,
-            quant_type="nf4", compress_statistics=True,
+            quant_type="nf4", compress_statistics=torch.cuda.is_available(),
         )
         if module.bias is not None:
             new_module.bias = module.bias
@@ -166,32 +166,42 @@ class CommandDataset(Dataset):
             for line in f:
                 messages = json.loads(line)
                 # Format: system + user + assistant
-                text = ""
+                prompt = ""
                 for msg in messages:
                     if msg["role"] == "system":
-                        text += f"system\n{msg['content']}<turn_end> "
+                        prompt += f"system\n{msg['content']}<turn_end> "
                     elif msg["role"] == "user":
-                        text += f"user\n {msg['content']}<turn_end> "
-                    elif msg["role"] == "assistant":
-                        text += f"assistant\n {msg['content']}<turn_end>"
-                self.examples.append(text)
+                        prompt += f"user\n {msg['content']}<turn_end> "
+                response = ""
+                for msg in messages:
+                    if msg["role"] == "assistant":
+                        response = f"assistant\n {msg['content']}<turn_end>"
+                full_text = prompt + response
+                prompt_len = len(tokenizer.encode(prompt))
+                self.examples.append((full_text, prompt_len))
 
     def __len__(self):
         return len(self.examples)
 
     def __getitem__(self, idx):
-        tokens = self.tokenizer.encode(self.examples[idx])
+        text, prompt_len = self.examples[idx]
+        tokens = self.tokenizer.encode(text)
         tokens = tokens[:self.max_length]
-        return torch.tensor(tokens, dtype=torch.long)
+        prompt_len = min(prompt_len, len(tokens))
+        return torch.tensor(tokens, dtype=torch.long), prompt_len
 
 
 def collate_fn(batch):
-    """Pad sequences to same length."""
-    max_len = max(len(x) for x in batch)
-    padded = torch.zeros(len(batch), max_len, dtype=torch.long)
-    for i, x in enumerate(batch):
-        padded[i, :len(x)] = x
-    return padded
+    """Pad sequences and create labels with masking for prompt and padding tokens."""
+    tokens_list, prompt_lens = zip(*batch)
+    max_len = max(len(x) for x in tokens_list)
+    input_ids = torch.zeros(len(tokens_list), max_len, dtype=torch.long)
+    labels = torch.full((len(tokens_list), max_len), -100, dtype=torch.long)
+    for i, (tokens, prompt_len) in enumerate(zip(tokens_list, prompt_lens)):
+        input_ids[i, :len(tokens)] = tokens
+        # Only compute loss on assistant response tokens (after prompt)
+        labels[i, prompt_len:len(tokens)] = tokens[prompt_len:]
+    return input_ids, labels
 
 
 def train_epoch(model, dataloader, optimizer, device, epoch, scaler=None):
@@ -200,23 +210,23 @@ def train_epoch(model, dataloader, optimizer, device, epoch, scaler=None):
     n_batches = 0
     start = time.time()
 
-    for i, batch in enumerate(dataloader):
-        input_ids = batch.to(device)
-        labels = input_ids.clone()
+    for i, (input_ids, labels) in enumerate(dataloader):
+        input_ids = input_ids.to(device)
+        labels = labels.to(device)
 
-        # Forward
+        # Forward — labels have -100 for prompt and padding tokens (ignored by CrossEntropyLoss)
         if scaler:
             with torch.amp.autocast(device_type=str(device), dtype=torch.float16):
                 output = model(input_ids)
                 logits = output.logits if hasattr(output, 'logits') else output
-                loss = nn.CrossEntropyLoss()(
+                loss = nn.CrossEntropyLoss(ignore_index=-100)(
                     logits[:, :-1, :].contiguous().view(-1, logits.size(-1)),
                     labels[:, 1:].contiguous().view(-1)
                 )
         else:
             output = model(input_ids)
             logits = output.logits if hasattr(output, 'logits') else output
-            loss = nn.CrossEntropyLoss()(
+            loss = nn.CrossEntropyLoss(ignore_index=-100)(
                 logits[:, :-1, :].contiguous().view(-1, logits.size(-1)),
                 labels[:, 1:].contiguous().view(-1)
             )
@@ -237,12 +247,13 @@ def train_epoch(model, dataloader, optimizer, device, epoch, scaler=None):
         total_loss += loss.item()
         n_batches += 1
 
-        if (i + 1) % 100 == 0:
+        log_every = 10 if len(dataloader) < 100 else 100
+        if (i + 1) % log_every == 0:
             avg = total_loss / n_batches
             elapsed = time.time() - start
             it_s = (i + 1) / elapsed
             remaining = (len(dataloader) - i - 1) / it_s / 60
-            print(f"  [{i+1}/{len(dataloader)}] loss={avg:.3f} {it_s:.1f}it/s ~{remaining:.0f}min left | {mem_str()}")
+            print(f"  [{i+1}/{len(dataloader)}] loss={avg:.3f} {it_s:.2f}it/s ~{remaining:.0f}min left | {mem_str()}")
 
     return total_loss / max(n_batches, 1)
 
@@ -253,13 +264,13 @@ def evaluate(model, dataloader, device):
     n_batches = 0
 
     with torch.no_grad():
-        for batch in dataloader:
-            input_ids = batch.to(device)
-            labels = input_ids.clone()
+        for input_ids, labels in dataloader:
+            input_ids = input_ids.to(device)
+            labels = labels.to(device)
             with torch.amp.autocast(device_type=str(device), dtype=torch.float16):
                 output = model(input_ids)
                 logits = output.logits if hasattr(output, 'logits') else output
-                loss = nn.CrossEntropyLoss()(
+                loss = nn.CrossEntropyLoss(ignore_index=-100)(
                     logits[:, :-1, :].contiguous().view(-1, logits.size(-1)),
                     labels[:, 1:].contiguous().view(-1)
                 )
@@ -280,7 +291,7 @@ def save_adapter_checkpoint(model, path, optimizer=None, epoch=None):
 def main():
     parser = argparse.ArgumentParser(description="QLoRA training for hunch")
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch-size", type=int, default=4)
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
     parser.add_argument("--train-data", default=str(TRAINING_DIR / "train.jsonl"))
     parser.add_argument("--eval-data", default=str(TRAINING_DIR / "eval.jsonl"))
