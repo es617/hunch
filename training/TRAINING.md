@@ -38,7 +38,7 @@ training/adapter_training_toolkit_v26_0_0/
 
 | Path | GPU | Cost | VRAM | Time (overrides) | Time (full bank) |
 |------|-----|------|------|------------------|------------------|
-| **QLoRA on Mac** | Apple Silicon | **Free, local** | **3.4GB** | **~34 min** | ~hours |
+| **QLoRA on Mac** | Apple Silicon | **Free, local** | **~5GB** | **~34 min** | ~hours |
 | QLoRA on Colab | T4 16GB | Free | ~5GB | ~5 min | ~1.7 hours |
 | fp16 LoRA on Colab | T4 16GB | Free | ~8.5GB | ~10 min | ~2 hours |
 | LoRA on Colab | A100 40GB | Colab Pro ($10/mo) | ~15GB | ~5 min | ~2.5 hours |
@@ -77,7 +77,7 @@ Notes:
 - Requires bitsandbytes from git main (pre-v0.50.0) with native MPS kernels (PR #1875)
 - The `kernels` package downloads pre-compiled Metal shaders from HuggingFace Hub at runtime
 - Don't use `bnb_4bit_use_double_quant=True` — not wired for MPS yet
-- ~34 min for 20 epochs of 96 examples on M4, 3.4GB GPU, 0.2GB RAM. Full bank (~19k) would take hours
+- ~34 min for 20 epochs of 96 examples on M4, ~5GB GPU peak. Full bank (~19k) would take hours
 
 ### Path B: Train on Colab
 
@@ -180,7 +180,7 @@ All patches are applied automatically by the notebook. To restore originals, re-
 
 ### Standard LoRA
 
-Loads the base model in fp32. No patches needed but requires an A100 (40GB) — doesn't fit on a T4.
+Loads the base model in fp32. No patches needed. The ~15GB GPU footprint barely fits a T4 (16GB) with no headroom, but loading crashes first — the 12GB checkpoint must be fully loaded into CPU RAM alongside the model, peaking at ~24GB. T4 only has 12GB system RAM. The A100 works because it has 80GB system RAM.
 
 Memory breakdown:
 - CPU RAM peak: **~24GB** during loading (12GB model + 12GB state dict simultaneously — no mmap)
@@ -239,9 +239,9 @@ All three approaches produce comparable adapters. QLoRA is recommended — same 
 
 | Approach | + Retrieval | Standalone | Trained on |
 |---|---|---|---|
-| LoRA (A100) | ~85% | ~72.5% | T4/A100 |
-| QLoRA (T4) | ~83% | ~73% | T4 free |
-| QLoRA (Mac) | ~78.5% | ~72% | Local |
+| QLoRA (Mac) | ~86% | ~76% | Local |
+| QLoRA (T4) | ~85% | ~74% | T4 free |
+| LoRA (A100) | ~85% | ~72.5% | A100 |
 | Retrieval only | ~79% | — | — |
 | Bare model | — | ~41% | — |
 

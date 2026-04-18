@@ -247,7 +247,7 @@ def train_epoch(model, dataloader, optimizer, device, epoch, scaler=None):
         total_loss += loss.item()
         n_batches += 1
 
-        log_every = 10 if len(dataloader) < 100 else 100
+        log_every = 10 if len(dataloader) < 50 else 20
         if (i + 1) % log_every == 0:
             avg = total_loss / n_batches
             elapsed = time.time() - start
