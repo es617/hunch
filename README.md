@@ -173,13 +173,15 @@ This clones [tldr-pages](https://github.com/tldr-pages/tldr), parses all entries
 
 ## LoRA Adapter Training (experimental)
 
-The `training/` directory contains infrastructure for fine-tuning Apple's on-device 3B model using LoRA adapters. This is an exploration of whether fine-tuning can complement or replace the retrieval approach — see `training/README.md` for full details, results, and notebooks.
+The `training/` directory contains infrastructure for fine-tuning Apple's on-device 3B model using LoRA adapters. QLoRA training works on a free Colab T4 or locally on a 24GB Mac. See `training/README.md` for full details, results, and notebooks.
 
 ```bash
 hunch --adapter path/to/hunch.fmadapter "find files changed in the last hour"
 ```
 
-Current finding: retrieval alone (~83%) still outperforms adapter-based approaches, but the training pipeline and QLoRA patches (enabling training on free Colab T4 GPUs) may be useful to others exploring Apple's adapter toolkit.
+Current finding: adapter + retrieval reaches ~86% accuracy (vs ~79% retrieval alone). QLoRA matches full LoRA quality, and Mac-trained adapters match T4-trained.
+
+> **Known bug (as of April 2026):** Apple's `TGOnDeviceInferenceProviderService` caches a full copy of the adapter (~160MB) on every CLI invocation and never cleans up. Repeated adapter calls from CLI tools can consume significant disk space. Apple has confirmed this as a known bug specific to CLI tools. See `training/adapter-disk-leak-findings.md` for details and workaround.
 
 ## Known limitations
 
