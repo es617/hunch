@@ -439,93 +439,93 @@ struct Hunch {
         let dbPath = findDatabase()
 
         for run in 1...runs {
-        for line in lines {
-            guard let data = line.data(using: .utf8),
-                  let entry = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                  let idValue = entry["id"], let id = idValue as? Int ?? (idValue as? NSNumber)?.intValue,
-                  let prompt = entry["prompt"] as? String else {
-                continue
-            }
-
-            let start = CFAbsoluteTimeGetCurrent()
-            var result: String
-
-            do {
-                let examples = dbPath != nil
-                    ? searchBank(dbPath: dbPath!, query: prompt, limit: limit)
-                    : []
-                let systemPrompt = buildSystemPrompt(mode: .suggest, examples: examples)
-
-                let session: LanguageModelSession
-                if !systemPrompt.isEmpty {
-                    let segment = Transcript.TextSegment(content: systemPrompt)
-                    let instructions = Transcript.Instructions(
-                        segments: [.text(segment)],
-                        toolDefinitions: []
-                    )
-                    session = LanguageModelSession(
-                        model: model,
-                        transcript: Transcript(entries: [.instructions(instructions)])
-                    )
-                } else {
-                    session = LanguageModelSession(model: model)
+            for line in lines {
+                guard let data = line.data(using: .utf8),
+                      let entry = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let idValue = entry["id"], let id = idValue as? Int ?? (idValue as? NSNumber)?.intValue,
+                      let prompt = entry["prompt"] as? String else {
+                    continue
                 }
 
-                if guided == "plain" {
-                    let response: LanguageModelSession.Response<ShellCommand>
-                    if let opts = genOptions {
-                        response = try await session.respond(to: prompt, generating: ShellCommand.self, options: opts)
-                    } else {
-                        response = try await session.respond(to: prompt, generating: ShellCommand.self)
-                    }
-                    result = response.content.command
-                } else if guided == "cot" {
-                    let response: LanguageModelSession.Response<ShellCommandCoT>
-                    if let opts = genOptions {
-                        response = try await session.respond(to: prompt, generating: ShellCommandCoT.self, options: opts)
-                    } else {
-                        response = try await session.respond(to: prompt, generating: ShellCommandCoT.self)
-                    }
-                    result = response.content.command
-                } else if guided == "multi" {
-                    let response: LanguageModelSession.Response<ShellCommandMulti>
-                    if let opts = genOptions {
-                        response = try await session.respond(to: prompt, generating: ShellCommandMulti.self, options: opts)
-                    } else {
-                        response = try await session.respond(to: prompt, generating: ShellCommandMulti.self)
-                    }
-                    result = majorityVote([response.content.first, response.content.second, response.content.third])
-                } else {
-                    // Default: plain string
-                    let response: LanguageModelSession.Response<String>
-                    if let opts = genOptions {
-                        response = try await session.respond(to: prompt, options: opts)
-                    } else {
-                        response = try await session.respond(to: prompt)
-                    }
-                    result = stripMarkdown(response.content)
-                }
-            } catch {
-                result = "[ERROR] \(error.localizedDescription)"
-            }
+                let start = CFAbsoluteTimeGetCurrent()
+                var result: String
 
-            let elapsed = round((CFAbsoluteTimeGetCurrent() - start) * 100) / 100
-            var output: [String: Any] = [
-                "id": id,
-                "prompt": prompt,
-                "result": result,
-                "total_time": elapsed
-            ]
-            if runs > 1 {
-                output["run"] = run
-            }
-            if let jsonData = try? JSONSerialization.data(withJSONObject: output),
-               let jsonString = String(data: jsonData, encoding: .utf8) {
-                print(jsonString)
-                fflush(stdout)
+                do {
+                    let examples = dbPath != nil
+                        ? searchBank(dbPath: dbPath!, query: prompt, limit: limit)
+                        : []
+                    let systemPrompt = buildSystemPrompt(mode: .suggest, examples: examples)
+
+                    let session: LanguageModelSession
+                    if !systemPrompt.isEmpty {
+                        let segment = Transcript.TextSegment(content: systemPrompt)
+                        let instructions = Transcript.Instructions(
+                            segments: [.text(segment)],
+                            toolDefinitions: []
+                        )
+                        session = LanguageModelSession(
+                            model: model,
+                            transcript: Transcript(entries: [.instructions(instructions)])
+                        )
+                    } else {
+                        session = LanguageModelSession(model: model)
+                    }
+
+                    if guided == "plain" {
+                        let response: LanguageModelSession.Response<ShellCommand>
+                        if let opts = genOptions {
+                            response = try await session.respond(to: prompt, generating: ShellCommand.self, options: opts)
+                        } else {
+                            response = try await session.respond(to: prompt, generating: ShellCommand.self)
+                        }
+                        result = response.content.command
+                    } else if guided == "cot" {
+                        let response: LanguageModelSession.Response<ShellCommandCoT>
+                        if let opts = genOptions {
+                            response = try await session.respond(to: prompt, generating: ShellCommandCoT.self, options: opts)
+                        } else {
+                            response = try await session.respond(to: prompt, generating: ShellCommandCoT.self)
+                        }
+                        result = response.content.command
+                    } else if guided == "multi" {
+                        let response: LanguageModelSession.Response<ShellCommandMulti>
+                        if let opts = genOptions {
+                            response = try await session.respond(to: prompt, generating: ShellCommandMulti.self, options: opts)
+                        } else {
+                            response = try await session.respond(to: prompt, generating: ShellCommandMulti.self)
+                        }
+                        result = majorityVote([response.content.first, response.content.second, response.content.third])
+                    } else {
+                        // Default: plain string
+                        let response: LanguageModelSession.Response<String>
+                        if let opts = genOptions {
+                            response = try await session.respond(to: prompt, options: opts)
+                        } else {
+                            response = try await session.respond(to: prompt)
+                        }
+                        result = stripMarkdown(response.content)
+                    }
+                } catch {
+                    result = "[ERROR] \(error.localizedDescription)"
+                }
+
+                let elapsed = round((CFAbsoluteTimeGetCurrent() - start) * 100) / 100
+                var output: [String: Any] = [
+                    "id": id,
+                    "prompt": prompt,
+                    "result": result,
+                    "total_time": elapsed
+                ]
+                if runs > 1 {
+                    output["run"] = run
+                }
+                if let jsonData = try? JSONSerialization.data(withJSONObject: output),
+                   let jsonString = String(data: jsonData, encoding: .utf8) {
+                    print(jsonString)
+                    fflush(stdout)
+                }
             }
         }
-        } // end runs loop
     }
 
     static func printUsage() {

@@ -16,8 +16,10 @@ training/
 ├── train_lora_fp16.ipynb         # fp16 LoRA training notebook (works on free T4)
 ├── train_qlora.ipynb             # QLoRA training notebook (works on free T4, recommended)
 ├── train_qlora_full.py           # QLoRA training script (T4 or Mac)
+├── train_qlora_test.py           # Quick smoke test (load model, one forward/backward pass)
 ├── prepare_data.py               # Converts hunch bank → training JSONL
-└── README.md                     # Full experiment writeup and results
+├── bench_mps.py                  # Metal vs CPU fallback benchmark
+└── TRAINING.md                   # This file
 ```
 
 ## Quick Start
@@ -255,7 +257,7 @@ Full benchmark details and analysis in README.md.
 
 **Workaround:** Use `hunch --batch` to run multiple prompts in a single process (1 cached copy instead of 1 per prompt). To reclaim space, boot Recovery Mode and delete `/Volumes/Data/private/var/db/AppleIntelligencePlatform/AppModelAssets/*`.
 
-See `adapter-disk-leak-findings.md` for the full investigation.
+To reclaim space, boot Recovery Mode and run `rm -rf /Volumes/Data/private/var/db/AppleIntelligencePlatform/AppModelAssets/*`. The service recreates what it needs on the next adapter load.
 
 ## Troubleshooting
 

@@ -22,3 +22,4 @@ training/adapter_training_toolkit*
 training/README.md
 training/exports/
 training/qlora-checkpoints/
+training/bench_mps_results.jsonl

@@ -173,7 +173,7 @@ This clones [tldr-pages](https://github.com/tldr-pages/tldr), parses all entries
 
 ## LoRA Adapter Training (experimental)
 
-The `training/` directory contains infrastructure for fine-tuning Apple's on-device 3B model using LoRA adapters. QLoRA training works on a free Colab T4 or locally on a 24GB Mac. See `training/README.md` for full details, results, and notebooks.
+The `training/` directory contains infrastructure for fine-tuning Apple's on-device 3B model using LoRA adapters. QLoRA training works on a free Colab T4 or locally on a 24GB Mac. See `training/TRAINING.md` for full details, results, and notebooks.
 
 ```bash
 hunch --adapter path/to/hunch.fmadapter "find files changed in the last hour"
