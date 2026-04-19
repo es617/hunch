@@ -504,6 +504,135 @@ def approach_hunch_multi_warm(prompt):
     return _run_hunch(prompt, ["--guided", "multi", "--temperature", "0.3"])
 
 
+ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "exports" / "hunch.fmadapter")
+QLORA_FP16_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_fp16.fmadapter")
+QLORA_NF4_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora.fmadapter")
+QLORA_OVERRIDE_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_overrides.fmadapter")
+LORA_OVERRIDE_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "exports" / "hunch_overrides.fmadapter")
+
+
+def _run_hunch_batch(prompts, extra_args=None, runs=1):
+    """Run all prompts in a single hunch process using --batch mode.
+
+    This avoids the TGOnDeviceInferenceProviderService disk leak where each
+    process invocation caches a ~160MB copy of the adapter.
+
+    Returns: dict keyed by (run, id) if runs > 1, or by id if runs == 1.
+    """
+    # Write prompts to a temp JSONL file
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as f:
+        for p in prompts:
+            f.write(json.dumps({"id": p["id"], "prompt": p["prompt"]}) + "\n")
+        batch_path = f.name
+
+    cmd = ["hunch"]
+    if extra_args:
+        cmd.extend(extra_args)
+    cmd.extend(["--batch", batch_path])
+    if runs > 1:
+        cmd.extend(["--runs", str(runs)])
+
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        results = {}
+        count = 0
+        total = len(prompts) * runs
+        for line in proc.stdout:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                r = json.loads(line)
+                count += 1
+                status = r.get("result", "")[:40]
+                print(f"  [{count}/{total}] #{r.get('id', '?'):3d}: {r.get('prompt', '')[:50]:50s} → {status} ({r.get('total_time', 0)}s)")
+                if runs > 1:
+                    results[(r["run"], r["id"])] = r
+                else:
+                    results[r["id"]] = r
+            except (json.JSONDecodeError, KeyError):
+                continue
+        proc.wait()
+        return results
+    except Exception:
+        return {}
+    finally:
+        os.unlink(batch_path)
+
+
+def _make_batch_approach(extra_args):
+    """Create a batch-aware approach function for adapter benchmarks."""
+    def approach(prompt):
+        # Fallback for single-prompt calls (e.g. --ids)
+        return _run_hunch(prompt, extra_args)
+    approach._batch_args = extra_args
+    return approach
+
+
+def approach_adapter_only(prompt):
+    """LoRA adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", ADAPTER_PATH, "--limit", "0"])
+approach_adapter_only._batch_args = ["--adapter", ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_adapter_retrieval(prompt):
+    """LoRA adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", ADAPTER_PATH])
+approach_adapter_retrieval._batch_args = ["--adapter", ADAPTER_PATH]
+
+
+def approach_fp16lora_only(prompt):
+    """fp16 LoRA adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_FP16_ADAPTER_PATH, "--limit", "0"])
+approach_fp16lora_only._batch_args = ["--adapter", QLORA_FP16_ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_fp16lora_retrieval(prompt):
+    """fp16 LoRA adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_FP16_ADAPTER_PATH])
+approach_fp16lora_retrieval._batch_args = ["--adapter", QLORA_FP16_ADAPTER_PATH]
+
+
+def approach_qlora_only(prompt):
+    """True QLoRA (NF4) adapter only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_NF4_ADAPTER_PATH, "--limit", "0"])
+approach_qlora_only._batch_args = ["--adapter", QLORA_NF4_ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_qlora_retrieval(prompt):
+    """True QLoRA (NF4) adapter + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_NF4_ADAPTER_PATH])
+approach_qlora_retrieval._batch_args = ["--adapter", QLORA_NF4_ADAPTER_PATH]
+
+
+def approach_qlora_override_only(prompt):
+    """QLoRA trained on overrides only, no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"])
+approach_qlora_override_only._batch_args = ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_qlora_override_retrieval(prompt):
+    """QLoRA trained on overrides only + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH])
+approach_qlora_override_retrieval._batch_args = ["--adapter", QLORA_OVERRIDE_ADAPTER_PATH]
+
+
+QLORA_MPS_ADAPTER_PATH = str(Path(__file__).parent.parent / "training" / "qlora-checkpoints" / "hunch_qlora_mps.fmadapter")
+
+
+def approach_qlora_mps_only(prompt):
+    """QLoRA trained on Mac (MPS), no retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_MPS_ADAPTER_PATH, "--limit", "0"])
+approach_qlora_mps_only._batch_args = ["--adapter", QLORA_MPS_ADAPTER_PATH, "--limit", "0"]
+
+
+def approach_qlora_mps_retrieval(prompt):
+    """QLoRA trained on Mac (MPS) + retrieval."""
+    return _run_hunch(prompt, ["--adapter", QLORA_MPS_ADAPTER_PATH])
+approach_qlora_mps_retrieval._batch_args = ["--adapter", QLORA_MPS_ADAPTER_PATH]
+
+
 def approach_dynshot_tldr(prompt):
     """Dynamic few-shot using tldr+overrides FTS5 index (21k entries)."""
     import sqlite3
@@ -576,6 +705,18 @@ APPROACHES = {
     "hunch-multi": approach_hunch_multi,
     "hunch-cotmulti": approach_hunch_cotmulti,
     "hunch-multi-warm": approach_hunch_multi_warm,
+    "adapter-only": approach_adapter_only,
+    "adapter-retrieval": approach_adapter_retrieval,
+    "fp16lora-only": approach_fp16lora_only,
+    "fp16lora-retrieval": approach_fp16lora_retrieval,
+    "qlora-only": approach_qlora_only,
+    "qlora-retrieval": approach_qlora_retrieval,
+    "qlora-override-only": approach_qlora_override_only,
+    "qlora-override-retrieval": approach_qlora_override_retrieval,
+    "qlora-mps-only": approach_qlora_mps_only,
+    "qlora-mps-retrieval": approach_qlora_mps_retrieval,
+    "lora-override-only": _make_batch_approach(["--adapter", LORA_OVERRIDE_ADAPTER_PATH, "--limit", "0"]),
+    "lora-override-retrieval": _make_batch_approach(["--adapter", LORA_OVERRIDE_ADAPTER_PATH]),
     "hunch-sc": approach_hunch_sc,
     "sc-dynshot": approach_selfconsist_dynshot,
     "sc-warm": approach_selfconsist_warm,
@@ -595,14 +736,51 @@ def load_prompts(ids=None, category=None):
     return prompts
 
 
-def run_benchmark(approach_name, prompts):
+def run_benchmark(approach_name, prompts, suffix="", runs=1):
     func = APPROACHES[approach_name]
-    outfile = RESULTS_DIR / f"{approach_name}.jsonl"
 
     print(f"\n{'=' * 60}")
-    print(f"  APPROACH: {approach_name} ({len(prompts)} prompts)")
+    print(f"  APPROACH: {approach_name} ({len(prompts)} prompts{f', {runs} runs' if runs > 1 else ''})")
     print(f"{'=' * 60}")
 
+    # Use batch mode for adapter approaches (avoids disk leak)
+    batch_args = getattr(func, '_batch_args', None)
+    if batch_args and len(prompts) > 1:
+        print(f"  Using --batch mode (single process, avoids adapter disk leak)")
+        batch_results = _run_hunch_batch(prompts, batch_args, runs=runs)
+
+        all_results = []
+        for run_num in range(1, runs + 1):
+            run_suffix = f"-run{run_num}" if runs > 1 else ""
+            outfile = RESULTS_DIR / f"{approach_name}{suffix}{run_suffix}.jsonl"
+
+            results = []
+            with open(outfile, "w") as f:
+                for p in prompts:
+                    if runs > 1:
+                        br = batch_results.get((run_num, p["id"]), {})
+                    else:
+                        br = batch_results.get(p["id"], {})
+                    r = {
+                        "result": br.get("result", "[BATCH_ERROR]"),
+                        "total_time": br.get("total_time", 0),
+                    }
+                    r["id"] = p["id"]
+                    r["approach"] = approach_name
+                    r["prompt"] = p["prompt"]
+                    r["expected"] = p["expected"]
+                    r["category"] = p["category"]
+
+                    f.write(json.dumps(r) + "\n")
+                    f.flush()
+                    results.append(r)
+
+            print(f"  Saved to {outfile}")
+            all_results.extend(results)
+
+        return all_results
+
+    outfile = RESULTS_DIR / f"{approach_name}{suffix}.jsonl"
     results = []
     with open(outfile, "w") as f:
         for i, p in enumerate(prompts):
@@ -637,6 +815,7 @@ def main():
     parser.add_argument("approach", nargs="?", default="all", help="Approach name or 'all'")
     parser.add_argument("--ids", help="Comma-separated prompt IDs")
     parser.add_argument("--category", help="Filter by category: simple, flags, composed")
+    parser.add_argument("--runs", type=int, default=1, help="Number of runs (output files suffixed -run1, -run2, ...)")
     args = parser.parse_args()
 
     ids = [int(x) for x in args.ids.split(",")] if args.ids else None
@@ -655,7 +834,22 @@ def main():
         if a not in APPROACHES:
             print(f"Unknown approach: {a}. Available: {', '.join(APPROACHES.keys())}")
             sys.exit(1)
-        run_benchmark(a, prompts)
+
+    for a in approaches:
+        func = APPROACHES[a]
+        batch_args = getattr(func, '_batch_args', None)
+        if batch_args and args.runs > 1:
+            # Adapter approaches: all runs in one process
+            run_benchmark(a, prompts, runs=args.runs)
+        elif args.runs > 1:
+            # Non-adapter approaches: loop externally
+            for run_num in range(1, args.runs + 1):
+                print(f"\n{'#' * 60}")
+                print(f"  RUN {run_num}/{args.runs}")
+                print(f"{'#' * 60}")
+                run_benchmark(a, prompts, suffix=f"-run{run_num}")
+        else:
+            run_benchmark(a, prompts)
 
     print(f"\nDone. Run: python3 score.py")
 

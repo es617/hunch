@@ -16,3 +16,10 @@ __pycache__/
 *.tar.gz
 CLAUDE.md
 benchmark/GUIDED_GENERATION.md
+training/train.jsonl
+training/eval.jsonl
+training/adapter_training_toolkit*
+training/README.md
+training/exports/
+training/qlora-checkpoints/
+training/bench_mps_results.jsonl
