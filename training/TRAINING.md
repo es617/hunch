@@ -140,10 +140,10 @@ Each training example:
 
 ### QLoRA (recommended)
 
-Quantizes the frozen base model to 4-bit NF4 via `bitsandbytes`, and uses `mmap=True` loading to avoid the 12GB CPU RAM spike. Only `nn.Linear` layers are quantized (attention Q/K/V/O, FFN — ~90% of params). Embeddings, norms, and other layers stay in fp16. Adapters train in fp32.
+Quantizes the frozen base model to 4-bit NF4 via `bitsandbytes`, and uses `mmap=True` loading to avoid doubling CPU RAM with the state dict (~6GB peak instead of ~24GB without mmap or fp16). Only `nn.Linear` layers are quantized (attention Q/K/V/O, FFN — ~90% of params). Embeddings, norms, and other layers stay in fp16. Adapters train in fp32.
 
 Memory breakdown:
-- CPU RAM peak: **~1GB** (mmap reads weights from disk on demand)
+- CPU RAM peak: **~6GB** (fp16 model on CPU before quantization; mmap avoids a second 12GB copy of the state dict)
 - Base model Linear layers: ~1.5GB (NF4)
 - Base model non-Linear: ~0.65GB (fp16)
 - Adapters + gradients + optimizer: ~0.6GB (fp32)
@@ -157,7 +157,7 @@ Only one patch needed: rms_norm dtype fix for mixed fp16/fp32/quantized tensors 
 Forces the base model to fp16 and uses `mmap=True` loading. Both changes are patches to Apple's toolkit — the default loads fp32 without mmap, which requires ~24GB CPU RAM and 12GB GPU. Requires three patches total.
 
 Memory breakdown:
-- CPU RAM peak: **~1GB** (mmap, vs ~24GB without)
+- CPU RAM peak: **~6GB** (fp16 model on CPU; mmap avoids a second 12GB state dict copy, vs ~24GB without)
 - Base model: ~6GB (fp16, vs ~12GB fp32)
 - Adapters + gradients + optimizer: ~0.6GB (fp32)
 - Activations: ~2-3GB
@@ -191,7 +191,7 @@ Memory breakdown:
 - Activations: ~2-3GB (fp32)
 - **GPU total: ~15GB**
 
-The CPU RAM spike is why standard LoRA OOMs on a 24GB Mac and on T4 (12GB system RAM). The A100's 80GB system RAM hides this. fp16 LoRA and QLoRA avoid this with `mmap=True` loading (~1GB RAM peak instead of 24GB).
+The CPU RAM spike is why standard LoRA OOMs on a 24GB Mac and on T4 (12GB system RAM). The A100's 80GB system RAM hides this. fp16 LoRA and QLoRA avoid this with `mmap=True` loading (~6GB RAM peak instead of 24GB).
 
 ## Export
 
