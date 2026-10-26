@@ -1,0 +1,125 @@
+name: Update bank
+
+on:
+  schedule:
+    # Community pages change often, but the retrieval index only needs
+    # a fresh snapshot about once a week. Monday 06:15 UTC.
+    - cron: "15 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: update-bank
+  cancel-in-progress: false
+
+env:
+  GIT_TERMINAL_PROMPT: "0"
+
+jobs:
+  update-bank:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Rebuild bank
+        id: bank
+        run: |
+          set -euo pipefail
+
+          read -r before_hash previous <<<"$(python3 bank/build_tldr_bank.py --digest)"
+          cp bank/tldr_bank.db /tmp/tldr_bank.db.orig
+
+          python3 bank/build_tldr_bank.py
+
+          read -r after_hash entries <<<"$(python3 bank/build_tldr_bank.py --digest)"
+          echo "previous=$previous" >> "$GITHUB_OUTPUT"
+          echo "entries=$entries" >> "$GITHUB_OUTPUT"
+          echo "Bank digest ${before_hash} (${previous} examples) -> ${after_hash} (${entries} examples)"
+
+          if [ "$before_hash" = "$after_hash" ]; then
+            mv /tmp/tldr_bank.db.orig bank/tldr_bank.db
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Example content is unchanged. Restored the previous database so SQLite byte noise is not committed."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Example content changed."
+          fi
+
+      - name: Open pull request
+        if: steps.bank.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIOUS: ${{ steps.bank.outputs.previous }}
+          ENTRIES: ${{ steps.bank.outputs.entries }}
+        run: |
+          set -euo pipefail
+
+          if [ -n "${ACT:-}" ]; then
+            echo "Running under act; skip branch push and pull request."
+            git status --short -- bank/tldr_bank.db
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          db_tmp=$(mktemp)
+          cp bank/tldr_bank.db "$db_tmp"
+
+          default_branch="${GITHUB_REF_NAME}"
+          git fetch --depth=1 origin "$default_branch"
+          git checkout -B update-bank "origin/${default_branch}"
+          cp "$db_tmp" bank/tldr_bank.db
+          git add -- bank/tldr_bank.db
+
+          if git diff --cached --quiet; then
+            echo "Rebuilt database matches the branch tree; nothing to commit."
+            exit 0
+          fi
+
+          git commit -m "$(cat <<'EOF'
+          chore(bank): refresh retrieval index
+
+          Rebuild the example index from current community pages
+          and the checked-in macOS overrides.
+
+          Few-shot retrieval stays aligned with upstream examples
+          without rebuilding on every upstream commit.
+          EOF
+          )"
+
+          if git ls-remote --exit-code --heads origin update-bank >/dev/null 2>&1; then
+            git fetch origin "refs/heads/update-bank:refs/remotes/origin/update-bank"
+            expected=$(git rev-parse refs/remotes/origin/update-bank)
+            git push --force-with-lease="refs/heads/update-bank:${expected}" origin HEAD:update-bank
+          else
+            git push -u origin HEAD:update-bank
+          fi
+
+          body=$(cat <<EOF
+          ## Summary
+          - Refresh the retrieval index (${ENTRIES} examples, was ${PREVIOUS})
+          - Sources are the current community pages and the checked-in macOS overrides
+
+          ## Test plan
+          - [ ] Confirm the workflow log shows the parsed source counts
+          - [ ] Spot-check a search such as "find files modified last hour"
+          EOF
+          )
+
+          pr_number=$(gh pr list --head update-bank --base "$default_branch" --json number --jq '.[0].number // empty')
+          if [ -n "$pr_number" ]; then
+            gh pr edit "$pr_number" --title "chore(bank): refresh retrieval index" --body "$body"
+          else
+            gh pr create \
+              --base "$default_branch" \
+              --head update-bank \
+              --title "chore(bank): refresh retrieval index" \
+              --body "$body"
+          fi
