@@ -4,8 +4,10 @@
 Usage:
   python3 build_tldr_bank.py          # download + build
   python3 build_tldr_bank.py --query "find files modified last hour"  # test search
+  python3 build_tldr_bank.py --digest # stable content hash of the existing db
 """
 
+import hashlib
 import json
 import os
 import re
@@ -193,6 +195,32 @@ def build_fts_index(pairs):
     conn.close()
 
 
+def content_digest(db_path=DB_PATH):
+    """Return a stable sha256 and row count for an existing bank.
+
+    The digest covers question, answer, command, and source only. SQLite
+    page layout differs across versions, so file bytes are not a reliable
+    signal that the retrieved examples changed.
+    """
+    if not Path(db_path).exists():
+        return None, 0
+
+    conn = sqlite3.connect(str(db_path))
+    try:
+        rows = conn.execute(
+            "SELECT question, answer, cmd, source FROM bank "
+            "ORDER BY source, cmd, question, answer"
+        ).fetchall()
+    finally:
+        conn.close()
+
+    digest = hashlib.sha256()
+    for row in rows:
+        digest.update(json.dumps(row, ensure_ascii=False).encode())
+        digest.update(b"\n")
+    return digest.hexdigest(), len(rows)
+
+
 def search(query, n=8):
     """Search the FTS5 index for similar Q/A pairs."""
     conn = sqlite3.connect(str(DB_PATH))
@@ -226,7 +254,13 @@ def main():
     parser.add_argument("--query", help="Test search query")
     parser.add_argument("--skip-download", action="store_true")
     parser.add_argument("--sources", default="all", help="Comma-separated sources: tldr,cheat,override or 'all'")
+    parser.add_argument("--digest", action="store_true", help="Print '<sha256> <count>' for the existing database and exit")
     args = parser.parse_args()
+
+    if args.digest:
+        digest, count = content_digest()
+        print(f"{digest or 'missing'} {count}")
+        return
 
     if args.query:
         results = search(args.query)
